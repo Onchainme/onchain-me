@@ -31,17 +31,17 @@ export function MintSingleModal({ item, onClose, onConfirm }: MintSingleModalPro
               <GlyphTile glyph={item.glyph} hue={item.hue} size="xl" tone="bold" glow />
               <div className="flex-1">
                 <div className="font-px glow-m text-xs mb-1">{item.name}</div>
-                <div className="font-silk text-[10px] text-muted-neon">
+                <div className="font-silk text-[12px] text-muted-neon">
                   PROTOCOL · {item.protocol.toUpperCase()}
                 </div>
-                <div className="font-pixel-body text-[15px] text-ink-2 mt-2">
+                <div className="font-pixel-body text-[16px] text-ink-2 mt-2">
                   Unlocked based on your onchain activity.
                 </div>
               </div>
             </div>
             <Separator variant="dashed" />
             <div className="flex items-center">
-              <span className="font-silk text-[11px] text-muted-neon">EST. GAS</span>
+              <span className="font-silk text-[12px] text-muted-neon">EST. GAS</span>
               <div className="flex-1" />
               <span className="font-px glow-c text-xs">≈ 0.00042 SOL</span>
             </div>

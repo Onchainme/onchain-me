@@ -57,7 +57,7 @@ export function ShareModal({
           <Input
             readOnly
             value={link}
-            className="font-pixel-body text-[14px] text-cyan-neon"
+            className="font-pixel-body text-[16px] text-cyan-neon"
           />
           <Button variant="cyan" onClick={copy}>
             {copied ? "COPIED" : "COPY"}
@@ -77,8 +77,8 @@ export function ShareModal({
         </div>
         <Separator variant="dashed" />
         <Card accent="violet" padding="sm">
-          <div className="font-silk glow-v text-[10px] mb-1">REFERRAL LOGIC</div>
-          <div className="font-pixel-body text-sm text-ink-2 leading-snug">
+          <div className="font-silk glow-v text-[12px] mb-1">REFERRAL LOGIC</div>
+          <div className="font-pixel-body text-base text-ink-2 leading-snug">
             <span className="text-green-neon">●</span> Visitor connected → ref =
             visitor wallet
             <br />

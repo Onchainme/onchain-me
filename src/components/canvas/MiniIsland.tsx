@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import type { BuildingType } from "@/lib/types";
 
 interface MiniIslandProps {
@@ -67,7 +68,7 @@ const TYPES: BuildingType[] = [
  * Lightweight SVG thumbnail — used on land card grids where we need many
  * of these rendered at once. Main island uses the Pixi scene.
  */
-export function MiniIsland({
+function MiniIslandView({
   width = 200,
   height = 110,
   seed = 0,
@@ -91,24 +92,31 @@ export function MiniIsland({
     y: cy + ((gx + gy) * th) / 2,
   });
 
-  const objs: Array<{ gx: number; gy: number; hue: number; type: BuildingType }> = [];
-  for (let i = 0; i < count; i++) {
-    const gx = (i * 2 + seed + 1) % gs;
-    const gy = (i * 3 + seed + 2) % gs;
-    if (objs.some((o) => o.gx === gx && o.gy === gy)) continue;
-    objs.push({
-      gx,
-      gy,
-      hue: HUES[(i + seed) % HUES.length],
-      type: TYPES[(i + seed * 2) % TYPES.length],
-    });
-  }
+  const objs = useMemo(() => {
+    const out: Array<{ gx: number; gy: number; hue: number; type: BuildingType }> = [];
+    for (let i = 0; i < count; i++) {
+      const gx = (i * 2 + seed + 1) % gs;
+      const gy = (i * 3 + seed + 2) % gs;
+      if (out.some((o) => o.gx === gx && o.gy === gy)) continue;
+      out.push({
+        gx,
+        gy,
+        hue: HUES[(i + seed) % HUES.length],
+        type: TYPES[(i + seed * 2) % TYPES.length],
+      });
+    }
+    return out;
+  }, [count, gs, seed]);
 
-  const stars = computeStars(seed, width, height);
+  const stars = useMemo(() => computeStars(seed, width, height), [seed, width, height]);
 
-  const coords: Array<[number, number]> = [];
-  for (let gy = 0; gy < gs; gy++)
-    for (let gx = 0; gx < gs; gx++) coords.push([gx, gy]);
+  const coords = useMemo(() => {
+    const out: Array<[number, number]> = [];
+    for (let gy = 0; gy < gs; gy++) {
+      for (let gx = 0; gx < gs; gx++) out.push([gx, gy]);
+    }
+    return out;
+  }, [gs]);
 
   return (
     <svg
@@ -283,3 +291,5 @@ export function MiniIsland({
     </svg>
   );
 }
+
+export const MiniIsland = memo(MiniIslandView);

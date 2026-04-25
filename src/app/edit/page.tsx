@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { RefreshCcw, Sparkles } from "lucide-react";
 import { PageShell } from "@/components/dashboard/page-shell";
@@ -11,13 +12,25 @@ import { Button } from "@/components/ui/button";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import { IsometricIsland } from "@/components/canvas/IsometricIsland";
 import { Inventory } from "@/components/edit/inventory";
-import { MintSingleModal } from "@/components/modals/mint-single-modal";
-import { MintAllModal } from "@/components/modals/mint-all-modal";
-import { ShareModal } from "@/components/modals/share-modal";
 import { useWallet } from "@/hooks/wallet";
 import { useInventory } from "@/hooks/use-inventory";
 import { MY_SHORT } from "@/lib/mock-data";
+import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
 import type { InventoryItem } from "@/lib/types";
+
+const MintSingleModal = dynamic(
+  () =>
+    import("@/components/modals/mint-single-modal").then((m) => m.MintSingleModal),
+  { ssr: false },
+);
+const MintAllModal = dynamic(
+  () => import("@/components/modals/mint-all-modal").then((m) => m.MintAllModal),
+  { ssr: false },
+);
+const ShareModal = dynamic(
+  () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
+  { ssr: false },
+);
 
 const ISLAND_W = 900;
 const ISLAND_H = 680;
@@ -59,7 +72,7 @@ export default function EditPage() {
 
   return (
     <PageShell>
-      <div className="max-w-[1400px] mx-auto grid gap-6 p-6 grid-cols-1 lg:grid-cols-[340px_1fr]">
+      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 lg:grid-cols-[340px_1fr]`}>
         <aside className="flex flex-col gap-3">
           <StatsRail title="Edit" address={address} recent={false} />
           <Button
@@ -105,7 +118,7 @@ export default function EditPage() {
               onObjectClick={(o) => removeObject(o.id)}
             />
             {activeItem ? <ActiveCursorCard item={activeItem} /> : null}
-            <div className="absolute bottom-4 left-4 font-silk text-[10px] text-muted-neon">
+            <div className={`${UI_TEXT.labelText} absolute bottom-4 left-4 text-muted-neon`}>
               {activeItem
                 ? "CLICK A TILE TO PLACE · CLICK OBJECT TO REMOVE"
                 : "SELECT CLAIMED FROM INVENTORY"}
@@ -138,12 +151,12 @@ export default function EditPage() {
 function ActiveCursorCard({ item }: { item: InventoryItem }) {
   return (
     <Card accent="magenta" padding="sm" className="absolute top-12 right-5 w-56">
-      <div className="font-silk glow-m text-[10px] mb-1">ACTIVE CURSOR</div>
+      <div className={`${UI_TEXT.labelText} glow-m mb-1`}>ACTIVE CURSOR</div>
       <div className="flex items-center gap-2">
         <GlyphTile glyph={item.glyph} hue={item.hue} size="xs" tone="bold" />
         <span className="font-pixel-body text-sm">{item.name}</span>
       </div>
-      <div className="font-silk text-[9px] text-muted-neon mt-1">
+      <div className={`${UI_TEXT.labelTextSm} text-muted-neon mt-1`}>
         CLICK EMPTY TILE TO PLACE
       </div>
     </Card>

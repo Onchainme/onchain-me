@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import type { InventoryItem } from "@/lib/types";
+import { UI_TEXT } from "@/lib/ui-styles";
 
 type Filter = "all" | "claimed" | "eligible";
 
@@ -46,10 +47,10 @@ export function Inventory({
   return (
     <Card padding="default">
       <div className="flex items-center mb-2.5">
-        <span className="font-silk text-[10px] text-muted-neon tracking-[0.14em]">
+        <span className={cn(UI_TEXT.labelText, "text-muted-neon tracking-[0.14em]")}>
           INVENTORY
         </span>
-        <span className="font-silk text-[10px] glow-c ml-2">
+        <span className={cn(UI_TEXT.labelText, "glow-c ml-2")}>
           {claimedCount} CLAIMED · {eligibleCount} ELIGIBLE
         </span>
       </div>
@@ -67,7 +68,7 @@ export function Inventory({
               key={k}
               value={k}
               className={cn(
-                "font-silk text-[10px] uppercase tracking-wider px-2 py-1",
+                "font-silk text-[12px] 2xl:text-[16px] uppercase tracking-wider px-2 py-1",
                 TAB_ACCENT[k],
               )}
             >
@@ -91,7 +92,7 @@ export function Inventory({
         </TabsContent>
       </Tabs>
       <Separator variant="dashed" />
-      <div className="font-pixel-body text-sm text-muted-neon leading-snug">
+      <div className={cn(UI_TEXT.mainText, "text-muted-neon")}>
         <span className="text-magenta-neon">Claimed:</span> click → place on tile.
         <br />
         <span className="text-yellow-neon">Eligible 🔒:</span> click → Mint.
@@ -132,7 +133,7 @@ function InventorySlot({
           </span>
         ) : null}
       </button>
-      <div className="font-silk text-[9px] text-muted-neon text-center mt-1">
+      <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon text-center mt-1">
         {item.label}
       </div>
     </div>

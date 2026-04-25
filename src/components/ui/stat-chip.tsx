@@ -32,7 +32,7 @@ export function StatChip({
       padding="default"
       className={cn("flex flex-col gap-0.5 py-3 px-3.5", className)}
     >
-      <span className="font-silk text-[10px] text-muted-neon tracking-[0.1em]">
+      <span className="font-silk text-[12px] text-muted-neon tracking-[0.1em]">
         {label}
       </span>
       <span className={cn("font-px text-lg", c.value)}>{value}</span>

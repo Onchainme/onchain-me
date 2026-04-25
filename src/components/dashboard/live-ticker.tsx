@@ -4,8 +4,8 @@ import { LIVE_TICKER } from "@/lib/mock-data";
 export function LiveTicker() {
   return (
     <div className="flex items-center gap-3.5 flex-wrap text-muted-neon">
-      <span className="font-silk text-[10px] glow-c tracking-widest">◉ LIVE</span>
-      <span className="font-pixel-body text-sm">
+      <span className="font-silk text-[12px] glow-c tracking-widest">◉ LIVE</span>
+      <span className="font-pixel-body text-base">
         {LIVE_TICKER.map((event, i) => {
           const addrClass = i % 2 === 0 ? "glow-m" : "glow-c";
           return (

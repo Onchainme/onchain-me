@@ -37,9 +37,31 @@ function inventoryIdFromPlaced(placedId: string): string | null {
   return sep === -1 ? withoutPrefix : withoutPrefix.slice(0, sep);
 }
 
+function objectKey(protocol: string, name: string) {
+  return `${protocol.toLowerCase()}::${name.toLowerCase()}`;
+}
+
+function seedPlacedObjects(
+  source: LandObject[],
+  inventory: InventoryItem[],
+): LandObject[] {
+  const inventoryByKey = new Map<string, string>();
+  inventory.forEach((item) => {
+    inventoryByKey.set(objectKey(item.protocol, item.name), item.id);
+  });
+
+  return source.map((obj) => {
+    const inventoryId = inventoryByKey.get(objectKey(obj.protocol, obj.name));
+    if (!inventoryId) return obj;
+    return { ...obj, id: placedIdFor(inventoryId) };
+  });
+}
+
 export function useInventory(): UseInventoryResult {
   const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
-  const [placed, setPlaced] = useState<LandObject[]>(PLACED_OBJECTS);
+  const [placed, setPlaced] = useState<LandObject[]>(() =>
+    seedPlacedObjects(PLACED_OBJECTS, INITIAL_INVENTORY),
+  );
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   const placeAt = useCallback(

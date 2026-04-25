@@ -72,17 +72,19 @@ function IslandContent({
   );
 
   // Gentle vertical bob so the island feels floating.
-  const [bobOffset, setBobOffset] = useState(0);
   const timeRef = useRef(0);
+  const islandRef = useRef<Container | null>(null);
   useTick((ticker) => {
     timeRef.current += ticker.deltaMS;
-    setBobOffset(Math.sin(timeRef.current / 900) * 3);
+    if (islandRef.current) {
+      islandRef.current.y = Math.sin(timeRef.current / 900) * 3;
+    }
   });
 
   return (
     <pixiContainer>
       <Sky width={width} height={height} />
-      <pixiContainer y={bobOffset}>
+      <pixiContainer ref={islandRef}>
         <SideBlocks gridSize={gridSize} project={project} />
         <Hamsters gridSize={gridSize} project={project} />
         <TileGrid
@@ -125,16 +127,6 @@ function Sky({ width, height }: { width: number; height: number }) {
     return out;
   }, [width, height]);
 
-  const twinkleRef = useRef(0);
-  const [tick, setTick] = useState(0);
-  useTick((ticker) => {
-    twinkleRef.current += ticker.deltaMS;
-    if (twinkleRef.current > 120) {
-      twinkleRef.current = 0;
-      setTick((t) => (t + 1) % 1000);
-    }
-  });
-
   const drawBg = useCallback(
     (g: Graphics) => {
       g.clear();
@@ -172,13 +164,11 @@ function Sky({ width, height }: { width: number; height: number }) {
   const drawStars = useCallback(
     (g: Graphics) => {
       g.clear();
-      stars.forEach((s, i) => {
-        const phase = (tick + i * 13) % 60;
-        const alpha = s.o * (phase < 30 ? 1 : 0.4);
-        g.rect(s.x, s.y, s.s, s.s).fill({ color: 0xffffff, alpha });
+      stars.forEach((s) => {
+        g.rect(s.x, s.y, s.s, s.s).fill({ color: 0xffffff, alpha: s.o });
       });
     },
-    [stars, tick],
+    [stars],
   );
 
   const drawClouds = useCallback(

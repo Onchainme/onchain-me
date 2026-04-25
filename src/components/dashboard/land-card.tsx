@@ -16,11 +16,11 @@ const PREVIEW: Record<Size, { w: number; h: number; count: number }> = {
 
 // Font sizes in px for address/stat rows and overlay chips.
 const FONT = {
-  addr: { xl: 14, default: 11 },
-  statKey: { xl: 11, default: 10 },
-  statVal: { xl: 16, default: 11 },
-  rankKey: { xl: 10, default: 8 },
-  rankVal: { xl: 14, default: 10 },
+  addr: { xl: 16, default: 12 },
+  statKey: { xl: 12, default: 8 },
+  statVal: { xl: 16, default: 12 },
+  rankKey: { xl: 12, default: 8 },
+  rankVal: { xl: 16, default: 12 },
 };
 
 interface LandCardProps {
@@ -36,6 +36,7 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
   return (
     <Link
       href={`/land/${encodeURIComponent(land.address)}`}
+      prefetch={false}
       className={cn("block h-full", className)}
     >
       <Card
@@ -71,7 +72,7 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
           {land.rarityPct != null && isXL ? (
             <Badge
               variant="tag-outline-cyan"
-              className="absolute top-2.5 right-2.5 text-[9px] px-1.5 py-1"
+              className="absolute top-2.5 right-2.5 text-[8px] 2xl:text-[12px] px-1.5 py-1"
             >
               TOP {land.rarityPct}%
             </Badge>
@@ -86,7 +87,9 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
             {land.address}
           </span>
           {isXL ? (
-            <span className="font-silk text-[10px] text-muted-neon">VIEW →</span>
+            <span className="font-silk text-[12px] 2xl:text-[16px] text-muted-neon">
+              VIEW →
+            </span>
           ) : null}
         </div>
         <div className="flex items-center gap-2.5 mt-1.5">
@@ -102,7 +105,7 @@ function PreviewBadge({ land, size }: { land: LandSummary; size: Size }) {
   const isXL = size === "xl";
   const chipClass = cn(
     "absolute top-2 left-2",
-    isXL && "text-[10px] px-1.5 py-1",
+    isXL && "text-[12px] px-1.5 py-1",
   );
   if (land.badge) {
     return (

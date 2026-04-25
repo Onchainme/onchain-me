@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UI_TEXT } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/hooks/wallet";
 
@@ -29,19 +30,21 @@ function getPageKey(pathname: string | null): PageKey | null {
 }
 
 const navLinkClass =
-  "font-px text-[10px] tracking-[0.08em] uppercase text-muted-neon px-2.5 py-2 border-b-2 border-transparent transition-colors hover:text-ink-2";
+  "font-px text-[12px] 2xl:text-[16px] tracking-[0.08em] uppercase text-muted-neon px-2.5 py-2 border-b-2 border-transparent transition-colors hover:text-ink-2";
 
 function NavLink({
   label,
   href,
   active,
   disabled,
+  prefetch = true,
   onGuard,
 }: {
   label: string;
   href: string;
   active: boolean;
   disabled: boolean;
+  prefetch?: boolean;
   onGuard?: (e: MouseEvent) => void;
 }) {
   const className = cn(
@@ -58,7 +61,7 @@ function NavLink({
     );
   }
   return (
-    <Link href={href} className={className}>
+    <Link href={href} prefetch={prefetch} className={className}>
       {label}
     </Link>
   );
@@ -94,7 +97,7 @@ export function Header() {
     >
       <Link href="/" className="flex items-center gap-2.5">
         <PixelLogo size={32} />
-        <div className="font-px text-[13px] leading-none">
+        <div className="font-px text-[16px] 2xl:text-[20px] leading-none">
           <span className="glow-m">ONCHAIN</span>
           <span className="glow-c">.ME</span>
         </div>
@@ -106,12 +109,14 @@ export function Header() {
           href="/"
           active={current === "home"}
           disabled={false}
+          prefetch
         />
         <NavLink
           label="My Land"
           href="/my-land"
           active={current === "my"}
           disabled={needsWallet}
+          prefetch={false}
           onGuard={guard("/my-land")}
         />
         <NavLink
@@ -119,6 +124,7 @@ export function Header() {
           href="/edit"
           active={current === "edit"}
           disabled={needsWallet}
+          prefetch={false}
           onGuard={guard("/edit")}
         />
       </nav>
@@ -128,7 +134,10 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="gap-2 px-2.5 py-1.5 h-auto border-2 border-border-neon bg-bg-2 hover:bg-panel-2 hover:border-border-neon shadow-none font-silk text-[11px] normal-case tracking-normal"
+              className={cn(
+                "gap-2 px-2.5 py-1.5 h-auto border-2 border-border-neon bg-bg-2 hover:bg-panel-2 hover:border-border-neon shadow-none normal-case tracking-normal",
+                UI_TEXT.labelText,
+              )}
             >
               <WalletAvatar size="sm" />
               {wallet.shortAddress}

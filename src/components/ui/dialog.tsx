@@ -134,7 +134,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-px text-[13px] uppercase tracking-[0.08em]", className)}
+      className={cn("font-px text-[12px] uppercase tracking-[0.08em]", className)}
       {...props}
     />
   );
@@ -147,7 +147,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("font-pixel-body text-[15px] text-ink-2", className)}
+      className={cn("font-pixel-body text-[16px] text-ink-2", className)}
       {...props}
     />
   );

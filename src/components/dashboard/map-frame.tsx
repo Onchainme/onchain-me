@@ -15,7 +15,7 @@ export function MapFrame({ label, action, children }: MapFrameProps) {
     >
       <div className="absolute left-4 top-3.5 flex items-center gap-2.5 z-10">
         <div className="w-2 h-2 bg-cyan-neon shadow-[0_0_8px_var(--color-cyan-neon)]" />
-        <span className="font-silk text-[10px] text-muted-neon tracking-[0.12em]">
+        <span className="font-silk text-[12px] text-muted-neon tracking-[0.12em]">
           {label}
         </span>
       </div>

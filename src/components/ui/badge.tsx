@@ -10,9 +10,9 @@ const badgeVariants = cva(
     variants: {
       variant: {
         /* ── Chip: filter-style pill used in rails and toolbars ── */
-        chip: "font-silk text-[11px] tracking-[0.06em] uppercase px-2.5 py-1.5 bg-bg-2 border-border-neon text-ink-2 cursor-pointer hover:border-cyan-neon hover:text-ink",
+        chip: "font-silk text-[12px] tracking-[0.06em] uppercase px-2.5 py-1.5 bg-bg-2 border-border-neon text-ink-2 cursor-pointer hover:border-cyan-neon hover:text-ink",
         "chip-on":
-          "font-silk text-[11px] tracking-[0.06em] uppercase px-2.5 py-1.5 bg-violet-neon border-violet-neon text-bg cursor-pointer",
+          "font-silk text-[12px] tracking-[0.06em] uppercase px-2.5 py-1.5 bg-violet-neon border-violet-neon text-bg cursor-pointer",
         /* ── Tag: tiny status pill (MINT / ELIGIBLE / FEATURED) ── */
         tag: "font-px text-[8px] uppercase tracking-wider px-1.5 py-0.5 bg-magenta-neon text-white border-white",
         "tag-cyan":
@@ -24,10 +24,10 @@ const badgeVariants = cva(
         "tag-outline-yellow":
           "font-px text-[8px] uppercase tracking-wider px-1.5 py-0.5 bg-transparent border-yellow-neon text-yellow-neon",
         /* ── Passthroughs retained from shadcn for completeness ── */
-        default: "font-silk text-[10px] px-2 py-0.5 bg-primary text-primary-foreground",
+        default: "font-silk text-[12px] px-2 py-0.5 bg-primary text-primary-foreground",
         secondary:
-          "font-silk text-[10px] px-2 py-0.5 bg-secondary text-secondary-foreground",
-        outline: "font-silk text-[10px] px-2 py-0.5 bg-transparent border-border-neon text-ink",
+          "font-silk text-[12px] px-2 py-0.5 bg-secondary text-secondary-foreground",
+        outline: "font-silk text-[12px] px-2 py-0.5 bg-transparent border-border-neon text-ink",
       },
     },
     defaultVariants: { variant: "chip" },

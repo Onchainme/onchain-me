@@ -44,8 +44,8 @@ export function ConnectWalletModal() {
                 {w.glyph}
               </div>
               <div className="flex-1">
-                <div className="font-px text-[11px]">{w.name}</div>
-                <div className="font-silk text-[9px] text-muted-neon mt-0.5">
+                <div className="font-px text-[12px]">{w.name}</div>
+                <div className="font-silk text-[8px] text-muted-neon mt-0.5">
                   DETECTED
                 </div>
               </div>
@@ -54,7 +54,7 @@ export function ConnectWalletModal() {
           ))}
         </div>
         <Separator variant="dashed" />
-        <div className="font-silk text-[9px] text-muted-neon text-center">
+        <div className="font-silk text-[8px] text-muted-neon text-center">
           TRIGGERED BY MY LAND / EDIT WITH NO WALLET
         </div>
       </DialogContent>

@@ -39,7 +39,7 @@ export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalPr
         </DialogDescription>
         <div className="border-2 border-border-neon p-2 bg-bg-2">
           {eligible.length === 0 ? (
-            <div className="py-4 font-silk text-center text-muted-neon text-[11px]">
+            <div className="py-4 font-silk text-center text-muted-neon text-[12px]">
               NOTHING TO MINT
             </div>
           ) : (
@@ -56,8 +56,8 @@ export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalPr
               >
                 <GlyphTile glyph={it.glyph} hue={it.hue} size="md" />
                 <div className="flex-1">
-                  <div className="font-px text-[9px] text-ink">{it.name}</div>
-                  <div className="font-silk text-[9px] text-muted-neon mt-0.5">
+                  <div className="font-px text-[8px] text-ink">{it.name}</div>
+                  <div className="font-silk text-[8px] text-muted-neon mt-0.5">
                     {it.protocol}
                   </div>
                 </div>
@@ -68,7 +68,7 @@ export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalPr
         </div>
         <Separator variant="dashed" />
         <div className="flex items-center">
-          <span className="font-silk text-[11px] text-muted-neon">TOTAL GAS</span>
+          <span className="font-silk text-[12px] text-muted-neon">TOTAL GAS</span>
           <div className="flex-1" />
           <span className="font-px glow-y text-xs">≈ {totalGas} SOL</span>
         </div>

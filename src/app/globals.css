@@ -6,6 +6,10 @@
 
 /* ───────── Design tokens ───────── */
 @theme {
+  --breakpoint-sm: 1024px;
+  --breakpoint-md: 1440px;
+  --breakpoint-lg: 1920px;
+
   --color-bg: #0a0612;
   --color-bg-2: #120a1f;
   --color-bg-3: #1a0f2e;

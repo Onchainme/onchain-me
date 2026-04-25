@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import { StatChip } from "@/components/ui/stat-chip";
 import { WalletAvatar } from "@/components/ui/wallet-avatar";
 import { STATS } from "@/lib/mock-data";
+import { UI_TEXT } from "@/lib/ui-styles";
 
 interface StatsRailProps {
   title?: "My Land" | "Edit";
@@ -28,9 +29,9 @@ export function StatsRail({
         <div className="flex items-center gap-2.5">
           <WalletAvatar size="lg" glow />
           <div className="min-w-0">
-            <div className="font-silk text-[10px] text-muted-neon">{kicker}</div>
+            <div className={`${UI_TEXT.labelText} text-muted-neon`}>{kicker}</div>
             <h2 className="glow-c text-xl leading-none mt-0.5">{title}</h2>
-            <div className="font-silk glow-m text-[11px] mt-1">{address}</div>
+            <div className={`${UI_TEXT.labelText} glow-m mt-1`}>{address}</div>
           </div>
         </div>
       </Card>
@@ -43,7 +44,7 @@ export function StatsRail({
       <StatChip label="POINTS" value={STATS.points} color="yellow" />
       {recent ? (
         <Card padding="default">
-          <div className="font-silk text-[10px] text-muted-neon mb-1.5">
+          <div className={`${UI_TEXT.labelText} text-muted-neon mb-1.5`}>
             RECENT MINTS
           </div>
           {RECENT_MINTS.map((r) => (
@@ -52,7 +53,7 @@ export function StatsRail({
                 className="w-3 h-3 block"
                 style={{ background: `oklch(0.80 0.14 ${r.hue})` }}
               />
-              <span className="font-pixel-body text-[15px] text-ink-2">
+              <span className="font-pixel-body text-[16px] 2xl:text-[20px] text-ink-2">
                 {r.name}
               </span>
             </div>

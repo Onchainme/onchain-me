@@ -5,7 +5,7 @@ import { Slot } from "radix-ui";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-none border-2 bg-clip-padding whitespace-nowrap transition-all outline-none select-none disabled:pointer-events-none disabled:opacity-40 aria-invalid:ring-1 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3 focus-visible:ring-1 focus-visible:ring-ring/50",
+  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-none border-2 bg-clip-padding whitespace-nowrap transition-all outline-none select-none cursor-pointer disabled:pointer-events-none disabled:opacity-40 disabled:cursor-not-allowed aria-invalid:ring-1 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3 focus-visible:ring-1 focus-visible:ring-ring/50",
   {
     variants: {
       variant: {
@@ -28,11 +28,11 @@ const buttonVariants = cva(
         link: "bg-transparent border-transparent text-primary underline-offset-4 hover:underline shadow-none",
       },
       size: {
-        default: "h-9 px-3.5 text-[10px]",
-        sm: "h-7 px-2.5 text-[9px]",
-        xs: "h-6 px-2 text-[9px]",
-        lg: "h-11 px-4 text-[13px]",
-        xl: "h-12 px-5 text-[15px]",
+        default: "h-9 px-3.5 text-[12px]",
+        sm: "h-7 px-2.5 text-[8px]",
+        xs: "h-6 px-2 text-[8px]",
+        lg: "h-11 px-4 text-[12px]",
+        xl: "h-12 px-5 text-[16px]",
         icon: "size-9",
         "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-7",
