@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { Header } from "@/components/dashboard/header";
+import { Header } from "@/components/dashboard/Header";
 import { ConnectWalletModal } from "@/components/modals/connect-wallet-modal";
 
 interface PageShellProps {
