@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type MouseEvent } from "react";
-import { ChevronDown, Copy, LogOut } from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, LogOut, Pencil, User } from "lucide-react";
 import { PixelLogo } from "@/components/ui/pixel-logo";
 import { Button } from "@/components/ui/button";
 import { WalletAvatar } from "@/components/ui/wallet-avatar";
@@ -91,6 +91,16 @@ export function Header() {
     } catch {}
   };
 
+  const openPublicLand = () => {
+    if (!wallet) return;
+    router.push(`/land/${wallet.address}`);
+  };
+
+  const openExplorer = () => {
+    if (!wallet) return;
+    window.open(`https://solscan.io/account/${wallet.address}`, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <header
       className="flex items-center gap-3 px-5 py-3 border-b-2 border-border-neon relative z-20 bg-[rgba(10,6,18,0.85)] backdrop-blur-sm"
@@ -144,13 +154,37 @@ export function Header() {
               <ChevronDown className="size-3 text-muted-neon" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent
+            align="end"
+            className="w-64 border-2 border-border-neon bg-bg-2 font-pixel-body text-[16px]"
+          >
+            <DropdownMenuItem onSelect={() => router.push("/my-land")} className="text-[16px]">
+              <User className="size-4" />
+              <span>My Land</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push("/edit")} className="text-[16px]">
+              <Pencil className="size-4" />
+              <span>Edit Land</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={openPublicLand} className="text-[16px]">
+              <ExternalLink className="size-4" />
+              <span>Public Land Page</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={copyAddress}>
               <Copy className="size-3" />
               <span>Copy address</span>
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={openExplorer} className="text-[16px]">
+              <ExternalLink className="size-4" />
+              <span>Open in Solscan</span>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => disconnect()} variant="destructive">
+            <DropdownMenuItem
+              onSelect={() => disconnect()}
+              variant="destructive"
+              className="text-[16px]"
+            >
               <LogOut className="size-3" />
               <span>Disconnect</span>
             </DropdownMenuItem>
