@@ -1,8 +1,8 @@
 "use client";
 
-import { Application, extend, useTick } from "@pixi/react";
+import { Application, extend } from "@pixi/react";
 import { Container, Graphics } from "pixi.js";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { LandObject } from "@/lib/types";
 import {
@@ -18,6 +18,7 @@ import {
   shadeHue,
 } from "./geometry";
 import { getBuildingShape, type Pixel } from "./building-shapes";
+import { Hamsters } from "./Hamsters";
 
 extend({ Container, Graphics });
 
@@ -71,22 +72,13 @@ function IslandContent({
     [objects],
   );
 
-  // Gentle vertical bob so the island feels floating.
-  const timeRef = useRef(0);
-  const islandRef = useRef<Container | null>(null);
-  useTick((ticker) => {
-    timeRef.current += ticker.deltaMS;
-    if (islandRef.current) {
-      islandRef.current.y = Math.sin(timeRef.current / 900) * 3;
-    }
-  });
-
   return (
     <pixiContainer>
       <Sky width={width} height={height} />
-      <pixiContainer ref={islandRef}>
+      <pixiContainer>
+      <Hamsters gridSize={gridSize} project={project} />
         <SideBlocks gridSize={gridSize} project={project} />
-        <Hamsters gridSize={gridSize} project={project} />
+        
         <TileGrid
           gridSize={gridSize}
           project={project}
@@ -525,68 +517,3 @@ function resolveShade(hue: number, shade: Pixel["shade"]): number {
   return FIXED_SHADES[shade] ?? hueToRgb(hue);
 }
 
-/* ───────────────────────── Hamsters ───────────────────────── */
-
-function Hamsters({
-  gridSize,
-  project,
-}: {
-  gridSize: number;
-  project: ReturnType<typeof createProjection>;
-}) {
-  const front = project(gridSize - 1, gridSize - 1);
-  const bottomY = front.y + TILE_H + SIDE_LAYERS * BLOCK_H;
-  const cx = front.x - (gridSize - 1) * (TILE_W / 2);
-
-  const draw = useCallback(
-    (g: Graphics) => {
-      g.clear();
-      drawHamster(g, cx - 82, bottomY - 14, "brown");
-      drawHamster(g, cx - 20, bottomY - 6, "white");
-      drawHamster(g, cx + 40, bottomY - 16, "gray");
-    },
-    [cx, bottomY],
-  );
-
-  return <pixiGraphics draw={draw} />;
-}
-
-const SKINS = {
-  brown: { body: 0xb37a52, belly: 0xf4e9d8, shade: 0x8e5d3b, ear: 0xe0a07a },
-  white: { body: 0xf4ede0, belly: 0xffffff, shade: 0xd9ceb8, ear: 0xf7c7c0 },
-  gray: { body: 0xa9a9b4, belly: 0xe8e6ec, shade: 0x7e7e88, ear: 0xc4bec8 },
-} as const;
-
-function drawHamster(g: Graphics, x: number, y: number, variant: keyof typeof SKINS) {
-  const k = SKINS[variant];
-  const paw = 0xf4b5b5;
-  const eye = 0x1a0f22;
-  const nose = 0xd47a8a;
-  const s = 2.2 * 1.45;
-  const p = (cx: number, cy: number, cw: number, ch: number, fill: number) => {
-    g.rect(x + cx * s, y + cy * s, cw * s, ch * s).fill({ color: fill });
-  };
-  p(2, 0, 2, 4, k.body);
-  p(14, 0, 2, 4, k.body);
-  p(2, 0, 2, 2, paw);
-  p(14, 0, 2, 2, paw);
-  p(3, 3, 2, 2, k.ear);
-  p(13, 3, 2, 2, k.ear);
-  p(4, 4, 10, 2, k.body);
-  p(3, 6, 12, 10, k.body);
-  p(2, 8, 14, 6, k.body);
-  p(4, 16, 10, 2, k.body);
-  p(13, 7, 2, 8, k.shade);
-  p(14, 9, 1, 5, k.shade);
-  p(6, 10, 6, 6, k.belly);
-  p(7, 9, 4, 1, k.belly);
-  p(5, 8, 2, 2, eye);
-  p(11, 8, 2, 2, eye);
-  p(6, 8, 1, 1, 0xffffff);
-  p(12, 8, 1, 1, 0xffffff);
-  p(8, 11, 2, 1, nose);
-  p(4, 11, 1, 1, 0xf6c6c6);
-  p(13, 11, 1, 1, 0xf6c6c6);
-  p(4, 18, 3, 2, paw);
-  p(11, 18, 3, 2, paw);
-}
