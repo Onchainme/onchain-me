@@ -9,15 +9,10 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useWallet } from "@/hooks/wallet";
-
-const WALLETS = [
-  { name: "Phantom", color: "#ab9ff2", glyph: "P" },
-  { name: "Backpack", color: "#e33e3f", glyph: "B" },
-  { name: "Solflare", color: "#fc8d3c", glyph: "S" },
-] as const;
+import { Button } from "@/components/ui/button";
 
 export function ConnectWalletModal() {
-  const { isConnectOpen, closeConnectModal, connect } = useWallet();
+  const { isConnectOpen, closeConnectModal, connect, isConnecting, authError } = useWallet();
 
   return (
     <Dialog
@@ -28,34 +23,31 @@ export function ConnectWalletModal() {
         <DialogHeader>
           <DialogTitle>CONNECT WALLET</DialogTitle>
         </DialogHeader>
-        <DialogDescription>Required for My Land & Edit.</DialogDescription>
-        <div className="flex flex-col gap-2">
-          {WALLETS.map((w) => (
-            <button
-              key={w.name}
-              type="button"
-              onClick={() => connect(w.name)}
-              className="flex items-center gap-3 p-3 bg-panel border-2 border-border-neon cursor-pointer hover:border-cyan-neon transition-colors text-left"
-            >
-              <div
-                className="w-10 h-10 border-2 border-ink grid place-items-center font-display text-base"
-                style={{ background: w.color, color: "rgba(0,0,0,0.7)" }}
-              >
-                {w.glyph}
-              </div>
-              <div className="flex-1">
-                <div className="font-px text-[12px]">{w.name}</div>
-                <div className="font-silk text-[8px] text-muted-neon mt-0.5">
-                  DETECTED
-                </div>
-              </div>
-              <span className="font-silk glow-c text-sm">→</span>
-            </button>
-          ))}
+        <DialogDescription>
+          Required for My Land & Edit. We use your signature to authenticate.
+        </DialogDescription>
+        <div className="flex flex-col gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-between p-3 h-auto"
+            onClick={() => void connect()}
+            disabled={isConnecting}
+          >
+            <span className="font-px text-[12px]">Phantom</span>
+            <span className="font-silk glow-c text-sm">
+              {isConnecting ? "CONNECTING..." : "→"}
+            </span>
+          </Button>
+          {authError ? (
+            <p className="font-silk text-[10px] text-red-300 border border-red-500/40 bg-red-500/10 px-2 py-1.5">
+              {authError}
+            </p>
+          ) : null}
         </div>
         <Separator variant="dashed" />
         <div className="font-silk text-[8px] text-muted-neon text-center">
-          TRIGGERED BY MY LAND / EDIT WITH NO WALLET
+          SIGNATURE IS USED ONLY FOR LOGIN VERIFICATION
         </div>
       </DialogContent>
     </Dialog>
