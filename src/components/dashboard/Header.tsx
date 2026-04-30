@@ -181,7 +181,7 @@ export function Header() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onSelect={() => disconnect()}
+              onSelect={() => void disconnect()}
               variant="destructive"
               className="text-[16px]"
             >
