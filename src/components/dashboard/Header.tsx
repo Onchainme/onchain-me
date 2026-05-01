@@ -158,24 +158,30 @@ export function Header() {
             align="end"
             className="w-64 border-2 border-border-neon bg-bg-2 font-pixel-body text-[16px]"
           >
-            <DropdownMenuItem onSelect={() => router.push("/my-land")} className="text-[16px]">
+            <DropdownMenuItem
+              onSelect={() => router.push("/my-land")}
+              className="cursor-pointer text-[16px]"
+            >
               <User className="size-4" />
               <span>My Land</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push("/edit")} className="text-[16px]">
+            <DropdownMenuItem
+              onSelect={() => router.push("/edit")}
+              className="cursor-pointer text-[16px]"
+            >
               <Pencil className="size-4" />
               <span>Edit Land</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={openPublicLand} className="text-[16px]">
+            <DropdownMenuItem onSelect={openPublicLand} className="cursor-pointer text-[16px]">
               <ExternalLink className="size-4" />
               <span>Public Land Page</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={copyAddress}>
-              <Copy className="size-3" />
+            <DropdownMenuItem onSelect={copyAddress} className="cursor-pointer text-[16px]">
+              <Copy className="size-4" />
               <span>Copy address</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={openExplorer} className="text-[16px]">
+            <DropdownMenuItem onSelect={openExplorer} className="cursor-pointer text-[16px]">
               <ExternalLink className="size-4" />
               <span>Open in Solscan</span>
             </DropdownMenuItem>
@@ -183,9 +189,9 @@ export function Header() {
             <DropdownMenuItem
               onSelect={() => void disconnect()}
               variant="destructive"
-              className="text-[16px]"
+              className="cursor-pointer text-[16px]"
             >
-              <LogOut className="size-3" />
+              <LogOut className="size-4" />
               <span>Disconnect</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
