@@ -6,9 +6,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import bs58 from "bs58";
+import { WalletReadyState, type MessageSignerWalletAdapter } from "@solana/wallet-adapter-base";
+import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
+import {
+  PhantomWalletAdapter,
+  SolflareWalletAdapter,
+} from "@solana/wallet-adapter-wallets";
 import type { Wallet } from "@/lib/types";
 
 interface WalletContextValue {
@@ -16,7 +23,7 @@ interface WalletContextValue {
   isConnected: boolean;
   isConnecting: boolean;
   authError: string | null;
-  connect: () => Promise<void>;
+  connect: (walletName: WalletProviderName) => Promise<void>;
   disconnect: () => Promise<void>;
   openConnectModal: () => void;
   closeConnectModal: () => void;
@@ -36,14 +43,18 @@ type AuthMeResponse = {
   wallet: string;
 };
 
-type PhantomProvider = {
-  isPhantom?: boolean;
-  publicKey?: { toBase58(): string };
-  connect: () => Promise<{ publicKey: { toBase58(): string } }>;
-  signMessage: (
-    message: Uint8Array<ArrayBufferLike>,
-    encoding?: "utf8",
-  ) => Promise<{ signature: Uint8Array<ArrayBufferLike> }>;
+export type WalletProviderName = "phantom" | "backpack" | "solflare";
+
+const WALLET_ADAPTERS: Record<WalletProviderName, () => MessageSignerWalletAdapter> = {
+  phantom: () => new PhantomWalletAdapter(),
+  backpack: () => new BackpackWalletAdapter(),
+  solflare: () => new SolflareWalletAdapter(),
+};
+
+const WALLET_LABELS: Record<WalletProviderName, string> = {
+  phantom: "Phantom",
+  backpack: "Backpack",
+  solflare: "Solflare",
 };
 
 function toShortAddress(address: string) {
@@ -55,6 +66,26 @@ function getApiUrl(path: string) {
   return `${API_BASE}${path}`;
 }
 
+function normalizeSignedMessage(signed: unknown): Uint8Array {
+  if (signed instanceof Uint8Array) return signed;
+  if (signed instanceof ArrayBuffer) return new Uint8Array(signed);
+
+  if (Array.isArray(signed) && signed.every((item) => typeof item === "number")) {
+    return Uint8Array.from(signed);
+  }
+
+  if (signed && typeof signed === "object" && "signature" in signed) {
+    const nested = (signed as { signature?: unknown }).signature;
+    if (nested instanceof Uint8Array) return nested;
+    if (nested instanceof ArrayBuffer) return new Uint8Array(nested);
+    if (Array.isArray(nested) && nested.every((item) => typeof item === "number")) {
+      return Uint8Array.from(nested);
+    }
+  }
+
+  throw new Error("Wallet returned an invalid signature format.");
+}
+
 async function parseError(response: Response) {
   try {
     const body = (await response.json()) as { error?: { message?: string } };
@@ -63,20 +94,21 @@ async function parseError(response: Response) {
   return `Request failed with status ${response.status}`;
 }
 
-function getPhantomProvider() {
-  if (typeof window === "undefined") return null;
-  const provider = (window as Window & { solana?: PhantomProvider }).solana;
-  if (provider?.isPhantom) {
-    return provider;
-  }
-  return null;
-}
-
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isConnectOpen, setConnectOpen] = useState(false);
+  const adaptersRef = useRef<Partial<Record<WalletProviderName, MessageSignerWalletAdapter>>>({});
+
+  const getAdapter = useCallback((walletName: WalletProviderName) => {
+    const existing = adaptersRef.current[walletName];
+    if (existing) return existing;
+
+    const next = WALLET_ADAPTERS[walletName]();
+    adaptersRef.current[walletName] = next;
+    return next;
+  }, []);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -108,17 +140,23 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [refreshSession]);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (walletName: WalletProviderName) => {
     setAuthError(null);
     setIsConnecting(true);
     try {
-      const provider = getPhantomProvider();
-      if (!provider) {
-        throw new Error("Phantom wallet not found. Please install Phantom.");
+      const adapter = getAdapter(walletName);
+      if (
+        adapter.readyState === WalletReadyState.NotDetected ||
+        adapter.readyState === WalletReadyState.Unsupported
+      ) {
+        throw new Error(`${WALLET_LABELS[walletName]} wallet not found. Please install it.`);
       }
 
-      const { publicKey } = await provider.connect();
-      const walletAddress = publicKey.toBase58();
+      await adapter.connect();
+      const walletAddress = adapter.publicKey?.toBase58();
+      if (!walletAddress) {
+        throw new Error(`${WALLET_LABELS[walletName]} connected but no public key was returned.`);
+      }
 
       const nonceResponse = await fetch(getApiUrl("/api/v1/auth/nonce"), {
         method: "POST",
@@ -135,8 +173,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const message = nonceData.message || `Sign this message. Nonce: ${nonceData.nonce}`;
 
       const encodedMessage = new TextEncoder().encode(message);
-      const signed = await provider.signMessage(encodedMessage, "utf8");
-      const signature = bs58.encode(signed.signature);
+      if (!adapter.signMessage) {
+        throw new Error(`${WALLET_LABELS[walletName]} does not support message signing.`);
+      }
+      const signed = await adapter.signMessage(encodedMessage);
+      const signature = bs58.encode(normalizeSignedMessage(signed));
 
       const verifyResponse = await fetch(getApiUrl("/api/v1/auth/verify"), {
         method: "POST",
@@ -161,10 +202,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsConnecting(false);
     }
-  }, [refreshSession]);
+  }, [getAdapter, refreshSession]);
 
   const disconnect = useCallback(async () => {
     setAuthError(null);
+    const adapters = Object.values(adaptersRef.current);
+    await Promise.all(
+      adapters.map(async (adapter) => {
+        if (!adapter) return;
+        try {
+          await adapter.disconnect();
+        } catch {}
+      }),
+    );
     try {
       await fetch(getApiUrl("/api/v1/auth/logout"), {
         method: "POST",
