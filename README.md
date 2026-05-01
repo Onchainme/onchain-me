@@ -22,5 +22,7 @@
 ## Getting Started
 1. Clone the repo
 2. Install dependencies: `npm install`
-3. Run the development server: `npm run dev`
-4. Open [http://localhost:3000](http://localhost:3000)
+3. Set API base URL (optional if same domain):
+   - `NEXT_PUBLIC_API_BASE_URL=https://your-api-domain.com`
+4. Run the development server: `npm run dev`
+5. Open [http://localhost:3000](http://localhost:3000)

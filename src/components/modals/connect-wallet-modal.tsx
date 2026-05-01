@@ -67,7 +67,7 @@ export function ConnectWalletModal() {
               key={wallet.id}
               type="button"
               variant="outline"
-              className="h-auto w-full cursor-pointer justify-between p-3"
+              className="h-auto w-full justify-between p-3"
               onClick={() => void connect(wallet.id)}
               disabled={isConnecting}
             >
@@ -81,13 +81,13 @@ export function ConnectWalletModal() {
             </Button>
           ))}
           {authError ? (
-            <p className="border border-red-500/40 bg-red-500/10 px-2 py-1.5 font-silk text-[10px] text-red-300">
+            <p className="font-silk text-[10px] text-red-300 border border-red-500/40 bg-red-500/10 px-2 py-1.5">
               {authError}
             </p>
           ) : null}
         </div>
         <Separator variant="dashed" />
-        <div className="text-center font-silk text-[8px] text-muted-neon">
+        <div className="font-silk text-[8px] text-muted-neon text-center">
           SIGNATURE IS USED ONLY FOR LOGIN VERIFICATION
         </div>
       </DialogContent>

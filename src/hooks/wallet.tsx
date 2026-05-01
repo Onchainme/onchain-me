@@ -12,7 +12,10 @@ import {
 import bs58 from "bs58";
 import { WalletReadyState, type MessageSignerWalletAdapter } from "@solana/wallet-adapter-base";
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
-import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
+import {
+  PhantomWalletAdapter,
+  SolflareWalletAdapter,
+} from "@solana/wallet-adapter-wallets";
 import type { Wallet } from "@/lib/types";
 
 interface WalletContextValue {
