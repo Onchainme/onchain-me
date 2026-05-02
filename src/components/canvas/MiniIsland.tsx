@@ -6,6 +6,8 @@ interface MiniIslandProps {
   height?: number;
   seed?: number;
   count?: number;
+  className?: string;
+  fill?: boolean;
 }
 
 const TOP = [
@@ -45,7 +47,7 @@ function computeStars(seed: number, width: number, height: number) {
     return sd / 233280;
   };
   const out: Array<{ x: number; y: number; o: number }> = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 18; i++) {
     out.push({
       x: next() * width,
       y: next() * (height * 0.55),
@@ -73,14 +75,17 @@ function MiniIslandView({
   height = 110,
   seed = 0,
   count = 4,
+  className,
+  fill = false,
 }: MiniIslandProps) {
   const gs = 5;
-  const tw = 18;
-  const th = 9;
+  const tw = 19;
+  const th = 10;
   const blockH = 5;
   const layers = 2;
   const cx = width / 2;
-  const cy = height / 2 - 18;
+  // island visual half-height ≈ 30 (gs*th/2 + side blocks); centers it in viewBox
+  const cy = height / 2 - 30;
   const pickT = (gx: number, gy: number) =>
     TOP[(gx * 3 + gy * 7 + seed * 2) % TOP.length];
   const pickL = (gx: number, gy: number, l: number) =>
@@ -120,11 +125,13 @@ function MiniIslandView({
 
   return (
     <svg
-      width={width}
-      height={height}
+      className={className}
+      width={fill ? "100%" : width}
+      height={fill ? "100%" : height}
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio={fill ? "xMidYMid slice" : "xMidYMid meet"}
       shapeRendering="crispEdges"
-      style={{ display: "block" }}
+      style={fill ? undefined : { display: "block" }}
     >
       <defs>
         <linearGradient id={`mini-sky-${seed}`} x1="0" y1="0" x2="0" y2="1">

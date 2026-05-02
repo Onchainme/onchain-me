@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, shortWallet } from "@/lib/utils";
 import { MiniIsland } from "@/components/canvas/MiniIsland";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,11 +7,14 @@ import type { LandSummary } from "@/lib/types";
 
 type Size = "sm" | "md" | "lg" | "xl";
 
-const PREVIEW: Record<Size, { w: number; h: number; count: number }> = {
-  sm: { w: 160, h: 90, count: 3 },
-  md: { w: 200, h: 110, count: 4 },
-  lg: { w: 280, h: 150, count: 5 },
-  xl: { w: 520, h: 240, count: 7 },
+// vbox dimensions are tuned so slice-mode scales the island by container height
+// (vbox aspect ratio is always wider than any card aspect in the bento, so
+// height dominates the slice scale). Smaller `h` → bigger relative island.
+const PREVIEW: Record<Size, { w: number; h: number; minH: number; count: number }> = {
+  sm: { w: 480, h: 170, minH: 90,  count: 3 },
+  md: { w: 480, h: 135, minH: 110, count: 4 },
+  lg: { w: 480, h: 110, minH: 150, count: 5 },
+  xl: { w: 480, h: 95,  minH: 220, count: 7 },
 };
 
 // Font sizes in px for address/stat rows and overlay chips.
@@ -45,38 +48,51 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
         className="land-card flex-col h-full"
       >
         <div
-          className={cn(
-            "flex-1 grid place-items-center relative mb-2.5 border-2 border-border-neon-2 bg-bg",
-            isXL ? "p-3.5" : "p-2",
-          )}
-          style={{ minHeight: s.h }}
+          className="flex-1 relative mb-2.5 border-2 border-border-neon-2 overflow-hidden"
+          style={{ minHeight: s.minH }}
         >
-          <MiniIsland width={s.w} height={s.h} seed={land.seed} count={s.count} />
+          <MiniIsland
+            width={s.w}
+            height={s.h}
+            seed={land.seed}
+            count={s.count}
+            fill
+            className="absolute inset-0 pointer-events-none"
+          />
+
           <PreviewBadge land={land} size={size} />
-          {land.rank != null && size !== "sm" ? (
-            <div className="absolute bottom-2 right-2.5 font-silk flex items-baseline gap-1.5">
-              <span
-                className="text-muted-neon"
-                style={{ fontSize: isXL ? FONT.rankKey.xl : FONT.rankKey.default }}
+
+          <div
+            className={cn(
+              "absolute z-10 flex flex-col items-end gap-1",
+              isXL ? "top-2.5 right-2.5" : "top-2 right-2",
+            )}
+          >
+            {land.rarityPct != null && isXL ? (
+              <Badge
+                variant="tag-outline-cyan"
+                className="text-[8px] 2xl:text-[12px] px-1.5 py-1"
               >
-                RANK
-              </span>
-              <span
-                className="glow-y font-px"
-                style={{ fontSize: isXL ? FONT.rankVal.xl : FONT.rankVal.default }}
-              >
-                #{land.rank}
-              </span>
-            </div>
-          ) : null}
-          {land.rarityPct != null && isXL ? (
-            <Badge
-              variant="tag-outline-cyan"
-              className="absolute top-2.5 right-2.5 text-[8px] 2xl:text-[12px] px-1.5 py-1"
-            >
-              TOP {land.rarityPct}%
-            </Badge>
-          ) : null}
+                TOP {land.rarityPct}%
+              </Badge>
+            ) : null}
+            {land.rank != null && size !== "sm" ? (
+              <div className="font-silk flex items-baseline gap-1.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                <span
+                  className="text-muted-neon"
+                  style={{ fontSize: isXL ? FONT.rankKey.xl : FONT.rankKey.default }}
+                >
+                  RANK
+                </span>
+                <span
+                  className="glow-y font-px"
+                  style={{ fontSize: isXL ? FONT.rankVal.xl : FONT.rankVal.default }}
+                >
+                  #{land.rank}
+                </span>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
@@ -84,13 +100,11 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
             className="font-silk glow-c"
             style={{ fontSize: isXL ? FONT.addr.xl : FONT.addr.default }}
           >
-            {land.address}
+            {shortWallet(land.address)}
           </span>
-          {isXL ? (
-            <span className="font-silk text-[12px] 2xl:text-[16px] text-muted-neon">
+           <span className="font-silk text-[12px] 2xl:text-[16px] text-muted-neon">
               VIEW →
             </span>
-          ) : null}
         </div>
         <div className="flex items-center gap-2.5 mt-1.5">
           <StatInline label="OBJ" value={land.objectsCount} color="glow-m" isXL={isXL} />
@@ -104,8 +118,8 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
 function PreviewBadge({ land, size }: { land: LandSummary; size: Size }) {
   const isXL = size === "xl";
   const chipClass = cn(
-    "absolute top-2 left-2",
-    isXL && "text-[12px] px-1.5 py-1",
+    "absolute z-10 top-2 left-2",
+    isXL && "top-2.5 left-2.5 text-[12px] px-1.5 py-1",
   );
   if (land.badge) {
     return (
