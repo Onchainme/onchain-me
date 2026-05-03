@@ -516,4 +516,3 @@ function resolveShade(hue: number, shade: Pixel["shade"]): number {
   }
   return FIXED_SHADES[shade] ?? hueToRgb(hue);
 }
-
