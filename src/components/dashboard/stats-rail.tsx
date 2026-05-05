@@ -9,6 +9,11 @@ interface StatsRailProps {
   title?: "My Land" | "Edit";
   address: string;
   recent?: boolean;
+  stats?: {
+    protocols: number;
+    transactions: number;
+    score: number;
+  };
 }
 
 const RECENT_MINTS = [
@@ -21,8 +26,12 @@ export function StatsRail({
   title = "My Land",
   address,
   recent = true,
+  stats,
 }: StatsRailProps) {
   const kicker = title === "Edit" ? "EDIT MODE" : "OWNER";
+  const protocols = stats?.protocols ?? STATS.protocols;
+  const transactions = stats?.transactions ?? STATS.transactions;
+  const points = stats?.score ?? STATS.points;
   return (
     <div className="flex flex-col gap-3 w-full">
       <Card padding="lg" className="bg-panel-2">
@@ -35,13 +44,13 @@ export function StatsRail({
           </div>
         </div>
       </Card>
-      <StatChip label="PROTOCOLS" value={STATS.protocols} color="cyan" />
+      <StatChip label="PROTOCOLS" value={protocols} color="cyan" />
       <StatChip
         label="TRANSACTIONS"
-        value={STATS.transactions.toLocaleString()}
+        value={transactions.toLocaleString()}
         color="magenta"
       />
-      <StatChip label="POINTS" value={STATS.points} color="yellow" />
+      <StatChip label="POINTS" value={points} color="yellow" />
       {recent ? (
         <Card padding="default">
           <div className={`${UI_TEXT.labelText} text-muted-neon mb-1.5`}>

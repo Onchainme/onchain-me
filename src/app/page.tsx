@@ -3,7 +3,6 @@ import { Hero } from "@/components/dashboard/hero";
 import { LiveTicker } from "@/components/dashboard/live-ticker";
 import { LandsExplorer } from "@/components/dashboard/lands-explorer";
 import {
-  fetchBadges,
   fetchFeed,
   fetchLands,
   type FeedPage,
@@ -13,10 +12,9 @@ import {
 const INITIAL_SORT = "recent" as const;
 
 export default async function HomePage() {
-  const [landsResult, feedResult, badgesResult] = await Promise.allSettled([
+  const [landsResult, feedResult] = await Promise.allSettled([
     fetchLands({ sort: INITIAL_SORT, limit: 20 }),
     fetchFeed({ limit: 8 }),
-    fetchBadges(),
   ]);
 
   const lands: LandsPage =
@@ -29,16 +27,11 @@ export default async function HomePage() {
       ? feedResult.value
       : { items: [], nextCursor: null };
 
-  const badgeNames: Record<string, string> =
-    badgesResult.status === "fulfilled"
-      ? Object.fromEntries(badgesResult.value.map((b) => [b.id, b.name]))
-      : {};
-
   return (
     <PageShell>
       <div className="max-w-[1280px] mx-auto px-12 pt-6 pb-10 flex flex-col gap-3.5">
         <Hero />
-        <LiveTicker initialItems={feed.items} badgeNames={badgeNames} />
+        <LiveTicker initialItems={feed.items} />
         <LandsExplorer
           initialItems={lands.items}
           initialNextCursor={lands.nextCursor}

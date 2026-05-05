@@ -8,9 +8,9 @@ export type LandsSort = "recent" | "score";
 export interface ApiLand {
   wallet: string;
   ogImageUrl: string | null;
-  objectsCount: number;
-  score: number;
-  rank: number;
+  objectsCount?: number;
+  score?: number;
+  rank?: number;
 }
 
 export interface LandsPage {
@@ -55,7 +55,17 @@ export async function fetchLands({
     throw new ApiError(`Failed to fetch lands: ${res.status}`, res.status);
   }
 
-  return (await res.json()) as LandsPage;
+  const json = (await res.json()) as LandsPage;
+  return {
+    items: json.items.map((item) => ({
+      wallet: item.wallet,
+      ogImageUrl: item.ogImageUrl ?? null,
+      objectsCount: item.objectsCount ?? 0,
+      score: item.score ?? 0,
+      rank: item.rank,
+    })),
+    nextCursor: json.nextCursor ?? null,
+  };
 }
 
 export type FeedItem =
@@ -126,12 +136,80 @@ export async function fetchBadges(signal?: AbortSignal): Promise<Badge[]> {
   return json.items;
 }
 
+export interface ApiLandDetails {
+  wallet: string;
+  stats: {
+    protocols: number;
+    transactions: number;
+    score: number;
+  };
+  placements: Array<{
+    badgeId: string;
+    x: number;
+    y: number;
+  }>;
+  ogImageUrl: string | null;
+}
+
+export interface ApiInventoryClaimedItem {
+  badgeId: string;
+  weight: number;
+  assetId: string;
+}
+
+export interface ApiInventoryEligibleItem {
+  badgeId: string;
+  weight: number;
+  eligibleSince: string;
+  meta?: Record<string, string>;
+}
+
+export interface ApiInventory {
+  claimed: ApiInventoryClaimedItem[];
+  eligible: ApiInventoryEligibleItem[];
+}
+
+export async function fetchLandByWallet(
+  wallet: string,
+  signal?: AbortSignal,
+): Promise<ApiLandDetails> {
+  const encodedWallet = encodeURIComponent(wallet);
+  const res = await fetch(`${API_BASE_URL}/api/v1/lands/${encodedWallet}`, {
+    cache: "no-store",
+    credentials: "include",
+    signal,
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch land: ${res.status}`, res.status);
+  }
+  return (await res.json()) as ApiLandDetails;
+}
+
+export async function fetchLandInventory(
+  wallet: string,
+  signal?: AbortSignal,
+): Promise<ApiInventory> {
+  const encodedWallet = encodeURIComponent(wallet);
+  const res = await fetch(
+    `${API_BASE_URL}/api/v1/lands/${encodedWallet}/inventory`,
+    {
+      cache: "no-store",
+      credentials: "include",
+      signal,
+    },
+  );
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch land inventory: ${res.status}`, res.status);
+  }
+  return (await res.json()) as ApiInventory;
+}
+
 // Map an API land into the dashboard's LandSummary view-model.
 export function toLandSummary(item: ApiLand): LandSummary {
   return {
     address: item.wallet,
-    objectsCount: item.objectsCount,
-    points: item.score,
+    objectsCount: item.objectsCount ?? 0,
+    points: item.score ?? 0,
     rank: item.rank,
     seed: walletSeed(item.wallet),
   };
