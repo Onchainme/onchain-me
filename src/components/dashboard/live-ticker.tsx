@@ -9,10 +9,10 @@ const MAX_ITEMS = 8;
 
 interface LiveTickerProps {
   initialItems: FeedItem[];
-  badgeNames: Record<string, string>;
+  badgeNames?: Record<string, string>;
 }
 
-export function LiveTicker({ initialItems, badgeNames }: LiveTickerProps) {
+export function LiveTicker({ initialItems, badgeNames = {} }: LiveTickerProps) {
   const [items, setItems] = useState<FeedItem[]>(initialItems);
   const visibleRef = useRef(true);
 

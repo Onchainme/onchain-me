@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/dashboard/page-shell";
@@ -15,10 +15,10 @@ import { StatChip } from "@/components/ui/stat-chip";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import { WalletAvatar } from "@/components/ui/wallet-avatar";
 import { useWallet } from "@/hooks/wallet";
-import { PLACED_OBJECTS } from "@/lib/mock-data";
+import { fetchLandByWallet, type ApiLandDetails } from "@/lib/api";
 import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
-import { cn } from "@/lib/utils";
-import type { LandObject } from "@/lib/types";
+import { cn, shortWallet } from "@/lib/utils";
+import type { BuildingType, LandObject } from "@/lib/types";
 
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
@@ -34,10 +34,14 @@ export default function PublicLandPage() {
   const { wallet: visitor } = useWallet();
   const [hovered, setHovered] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [landData, setLandData] = useState<ApiLandDetails | null>(null);
+  const [objects, setObjects] = useState<LandObject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const owner = decodeURIComponent(params?.wallet ?? "0xBEEF…0001");
   const incomingRef = search?.get("ref");
-  const hoveredObj = hovered != null ? PLACED_OBJECTS[hovered] : null;
+  const hoveredObj = hovered != null ? objects[hovered] : null;
 
   // Ref-link rule: a connected visitor earns credit with their wallet;
   // otherwise pass through the incoming ref or default to the owner.
@@ -45,13 +49,40 @@ export default function PublicLandPage() {
     () => visitor?.shortAddress ?? incomingRef ?? owner,
     [visitor, incomingRef, owner],
   );
+  const ownerShort = shortWallet(owner);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    setIsLoading(true);
+    setLoadError(null);
+    fetchLandByWallet(owner, ctrl.signal)
+      .then((land) => {
+        setLandData(land);
+        const mapped = land.placements.map((placement, index) =>
+          placementToLandObject(placement, index),
+        );
+        setObjects(mapped);
+        setHovered(mapped.length > 0 ? 0 : null);
+      })
+      .catch((e: unknown) => {
+        if (ctrl.signal.aborted) return;
+        setLoadError(e instanceof Error ? e.message : "Failed to load public land");
+        setLandData(null);
+        setObjects([]);
+        setHovered(null);
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setIsLoading(false);
+      });
+    return () => ctrl.abort();
+  }, [owner]);
 
   return (
     <PageShell>
       <div className={`${UI_LAYOUT.pageContainer} pt-3 flex items-center gap-2 flex-wrap`}>
         <span className={`${UI_TEXT.labelText} text-muted-neon`}>
           <span className="text-cyan-neon">onchain.me</span>/land/
-          <span className="glow-m">{owner}</span>
+          <span className="glow-m break-all">{owner}</span>
         </span>
         {incomingRef ? (
           <span className={`${UI_TEXT.labelTextSm} text-muted-neon`}>
@@ -73,15 +104,15 @@ export default function PublicLandPage() {
             <div className="flex items-center gap-2.5">
               <WalletAvatar size="md" />
               <div>
-                <div className="font-px glow-c text-[12px] 2xl:text-[16px]">SOMEONE.SOL</div>
+                <div className="font-px glow-c text-[12px] 2xl:text-[16px]">{ownerShort}</div>
                 <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon">
-                  {owner} · OWNER
+                  {ownerShort} · OWNER
                 </div>
               </div>
             </div>
             <div className="flex gap-2">
-              <StatChip label="OBJ" value={PLACED_OBJECTS.length} color="cyan" />
-              <StatChip label="PTS" value="1,240" color="yellow" />
+              <StatChip label="OBJ" value={objects.length} color="cyan" />
+              <StatChip label="PTS" value={landData?.stats.score ?? 0} color="yellow" />
             </div>
           </div>
 
@@ -89,18 +120,31 @@ export default function PublicLandPage() {
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
-              objects={PLACED_OBJECTS}
+              objects={objects}
               hoveredIndex={hovered}
               onHoverObject={setHovered}
             />
+            {isLoading ? (
+              <div className="absolute inset-0 z-10 grid place-items-center bg-[rgba(10,6,18,0.35)]">
+                <div className={`${UI_TEXT.labelText} glow-c`}>LOADING PUBLIC LAND...</div>
+              </div>
+            ) : null}
             {hoveredObj ? (
               <ObjectTooltip obj={hoveredObj} style={{ left: "52%", top: "18%" }} />
+            ) : null}
+            {loadError ? (
+              <div className="absolute top-4 left-4 z-20 max-w-[420px] rounded border-2 border-magenta-neon bg-[rgba(26,15,46,0.92)] px-3 py-2">
+                <div className={`${UI_TEXT.labelText} text-magenta-neon`}>PUBLIC LAND UNAVAILABLE</div>
+                <div className="font-silk text-[11px] text-ink-2 mt-1">
+                  Could not load this wallet land from API.
+                </div>
+              </div>
             ) : null}
           </div>
         </MapFrame>
 
         <PlacedObjectsList
-          objects={PLACED_OBJECTS}
+          objects={objects}
           hovered={hovered}
           onHover={setHovered}
         />
@@ -114,6 +158,25 @@ export default function PublicLandPage() {
       />
     </PageShell>
   );
+}
+
+function placementToLandObject(
+  placement: { badgeId: string; x: number; y: number },
+  index: number,
+): LandObject {
+  const parsed = parseBadgeId(placement.badgeId);
+  return {
+    id: `public-${placement.badgeId}-${index}`,
+    gx: clampGrid(placement.x),
+    gy: clampGrid(placement.y),
+    hue: hueFromString(placement.badgeId),
+    glyph: parsed.glyph,
+    type: typeFromString(placement.badgeId),
+    name: parsed.name,
+    protocol: parsed.protocol,
+    tile: tileLabelFromCoords(placement.x, placement.y),
+    mintedAt: "API",
+  };
 }
 
 function PlacedObjectsList({
@@ -166,4 +229,57 @@ function PlacedObjectsList({
       </div>
     </Card>
   );
+}
+
+function clampGrid(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(9, Math.floor(value)));
+}
+
+function tileLabelFromCoords(gx: number, gy: number) {
+  const x = clampGrid(gx);
+  const y = clampGrid(gy);
+  return `${String.fromCharCode(65 + x)}-${y + 1}`;
+}
+
+function parseBadgeId(badgeId: string) {
+  const normalized = badgeId.replace(/[-_]/g, " ").trim();
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  const protocol = parts[0] ? capitalize(parts[0]) : "Protocol";
+  return {
+    protocol,
+    name: parts.map(capitalize).join(" "),
+    glyph: protocol.slice(0, 1).toUpperCase() || "?",
+  };
+}
+
+function capitalize(s: string) {
+  if (!s) return s;
+  return `${s[0].toUpperCase()}${s.slice(1).toLowerCase()}`;
+}
+
+function hueFromString(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % 360;
+}
+
+const BUILDING_TYPES: BuildingType[] = [
+  "tower",
+  "crystal",
+  "tree",
+  "dome",
+  "mushroom",
+  "shrine",
+  "lighthouse",
+];
+
+function typeFromString(value: string): BuildingType {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 17 + value.charCodeAt(i)) | 0;
+  }
+  return BUILDING_TYPES[Math.abs(hash) % BUILDING_TYPES.length];
 }

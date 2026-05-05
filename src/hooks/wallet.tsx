@@ -21,6 +21,7 @@ import type { Wallet } from "@/lib/types";
 interface WalletContextValue {
   wallet: Wallet | null;
   isConnected: boolean;
+  isSessionReady: boolean;
   isConnecting: boolean;
   authError: string | null;
   connect: (walletName: WalletProviderName) => Promise<void>;
@@ -96,6 +97,7 @@ async function parseError(response: Response) {
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [isSessionReady, setIsSessionReady] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isConnectOpen, setConnectOpen] = useState(false);
@@ -119,6 +121,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       if (response.status === 401) {
         setWallet(null);
+        setIsSessionReady(true);
         return;
       }
 
@@ -128,8 +131,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       const data = (await response.json()) as AuthMeResponse;
       setWallet({ address: data.wallet, shortAddress: toShortAddress(data.wallet) });
+      setIsSessionReady(true);
     } catch {
       setWallet(null);
+      setIsSessionReady(true);
     }
   }, []);
 
@@ -228,6 +233,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     () => ({
       wallet,
       isConnected: !!wallet,
+      isSessionReady,
       isConnecting,
       authError,
       connect,
@@ -239,7 +245,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       },
       isConnectOpen,
     }),
-    [wallet, isConnecting, authError, connect, disconnect, isConnectOpen],
+    [wallet, isSessionReady, isConnecting, authError, connect, disconnect, isConnectOpen],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
