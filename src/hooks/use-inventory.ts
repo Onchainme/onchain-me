@@ -332,6 +332,13 @@ export function useInventory(): UseInventoryResult {
           }
         }
         if (lastErr) throw lastErr;
+
+        // Notify other components (Hero banner, StatsRail) so they re-fetch
+        // /lands and /inventory and reflect the new score / claimed count
+        // without waiting for the next page reload.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("onchainme:mint", { detail: { badgeId } }));
+        }
       } catch (err) {
         console.error(`[mint] ${badgeId}: FAILED`, err);
         throw err;

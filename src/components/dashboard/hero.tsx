@@ -51,8 +51,13 @@ export function Hero() {
       }
     };
     void load();
+    // Re-fetch when a mint completes elsewhere on the page so the banner
+    // reflects the new claim/eligible/score numbers without a reload.
+    const refresh = () => void load();
+    window.addEventListener("onchainme:mint", refresh);
     return () => {
       cancelled = true;
+      window.removeEventListener("onchainme:mint", refresh);
     };
   }, [wallet?.address]);
 

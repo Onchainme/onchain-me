@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,19 @@ export function ShareModal({
   refAddress,
 }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
-  const link = `https://onchain.me/land/${ownerAddress}${refAddress ? `?ref=${refAddress}` : ""}`;
+  // Use the live origin so the share link works on localhost, app.onchainme.to,
+  // or any future custom domain. SSR fallback is the canonical apex.
+  const [origin, setOrigin] = useState<string>("https://onchainme.to");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
+    }
+  }, []);
+  const link = useMemo(
+    () =>
+      `${origin}/land/${ownerAddress}${refAddress ? `?ref=${refAddress}` : ""}`,
+    [origin, ownerAddress, refAddress],
+  );
 
   const copy = async () => {
     try {

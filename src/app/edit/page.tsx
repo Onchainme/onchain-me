@@ -70,7 +70,7 @@ export default function EditPage() {
   if (!isConnected) return null;
 
   const activeItem = inventory.find((i) => i.id === activeItemId) ?? null;
-  const address = wallet?.shortAddress ?? MY_SHORT;
+  const address = wallet?.address ?? MY_SHORT;
 
   return (
     <PageShell>

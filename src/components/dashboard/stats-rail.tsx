@@ -92,8 +92,13 @@ export function StatsRail({
       }
     };
     void load();
+    // Re-fetch when a mint completes so PROTOCOLS/TRANSACTIONS/POINTS and
+    // the RECENT MINTS list reflect the new claim immediately.
+    const refresh = () => void load();
+    window.addEventListener("onchainme:mint", refresh);
     return () => {
       cancelled = true;
+      window.removeEventListener("onchainme:mint", refresh);
     };
   }, [wallet?.address, externalStats]);
 

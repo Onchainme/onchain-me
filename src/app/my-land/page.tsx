@@ -98,7 +98,7 @@ export default function MyLandPage() {
   return (
     <PageShell>
       <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 lg:grid-cols-[280px_1fr]`}>
-        <StatsRail address={shortAddress} stats={landData?.stats} />
+        <StatsRail address={fullAddress} stats={landData?.stats} />
         <MapFrame
           label="YOUR ISLAND"
           action={
