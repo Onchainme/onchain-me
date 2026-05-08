@@ -119,12 +119,17 @@ export default function PublicLandPage() {
         <MapFrame
           label="PUBLIC ISLAND"
           action={
-            <Button variant="cyan" onClick={() => setShareOpen(true)}>
-              ↗ Share the Land
-            </Button>
+            <div className="flex items-center gap-2">
+              <StatChip label="OBJ" value={objects.length} color="cyan" size="sm" />
+              <StatChip label="PTS" value={score.toLocaleString()} color="yellow" size="sm" />
+              {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" /> : null}
+              <Button variant="cyan" onClick={() => setShareOpen(true)}>
+                ↗ Share the Land
+              </Button>
+            </div>
           }
         >
-          <div className="absolute left-4 top-11 flex items-center gap-4 z-[4] flex-wrap">
+          <div className="absolute left-4 top-12 flex items-center gap-4 z-[4]">
             <div className="flex items-center gap-2.5">
               <WalletAvatar size="md" />
               <div>
@@ -135,11 +140,6 @@ export default function PublicLandPage() {
                   {owner} · OWNER
                 </div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <StatChip label="OBJ" value={objects.length} color="cyan" />
-              <StatChip label="PTS" value={score.toLocaleString()} color="yellow" />
-              {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" /> : null}
             </div>
           </div>
 
