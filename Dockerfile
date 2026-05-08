@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1.7
+
+# ---- deps ----
+FROM node:20-alpine AS deps
+WORKDIR /app
+# Native build deps: libc6-compat for prebuilt addons used by the Solana stack;
+# python3/make/g++/linux-headers/eudev-dev/libusb-dev are required so npm can
+# compile the `usb` addon pulled in transitively by @trezor/transport.
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    make \
+    g++ \
+    linux-headers \
+    eudev-dev \
+    libusb-dev
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+# ---- build ----
+FROM node:20-alpine AS build
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# NEXT_PUBLIC_* vars are baked into the bundle at build time.
+ARG NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+# ---- runtime ----
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+# Run as a non-root user.
+RUN addgroup -S -g 1001 nodejs \
+ && adduser -S -u 1001 -G nodejs nextjs
+
+# Copy only what `next build` produced under "output: standalone".
+# `standalone/` already contains a pruned node_modules + server.js.
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1
+
+CMD ["node", "server.js"]
