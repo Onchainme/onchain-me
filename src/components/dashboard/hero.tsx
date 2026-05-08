@@ -91,7 +91,7 @@ export function Hero() {
           <div className="shrink-0 p-1 border-2 border-border-neon-2 bg-bg">
             <MiniIsland width={140} height={90} seed={12} count={3} />
           </div>
-          <div className="flex-1 min-w-[240px]">
+          <div className="flex-1 min-w-60">
             <div className="font-silk text-[12px] text-muted-neon tracking-[0.16em]">
               WELCOME BACK
             </div>
@@ -106,7 +106,7 @@ export function Hero() {
                 : "Loading wallet stats…"}
             </div>
           </div>
-          <div className="flex flex-col gap-2 min-w-[200px]">
+          <div className="flex flex-col gap-2 min-w-full md:min-w-50 ">
             <Button variant="primary" size="lg" asChild>
               <Link href="/edit" prefetch={false} className="w-full">
                 {eligible > 0 ? `✨ Mint All (${eligible})` : "→ Open Edit"}
@@ -133,7 +133,7 @@ export function Hero() {
         <div className="font-silk text-[12px] text-ink-2 tracking-[0.15em]">
           YOUR WALLET · YOUR WORLD
         </div>
-        <div className="w-60 h-[3px] mt-2 bg-cyan-neon shadow-[0_0_10px_var(--color-cyan-neon)]" />
+        <div className="w-60 h-0.75 mt-2 bg-cyan-neon shadow-[0_0_10px_var(--color-cyan-neon)]" />
         <div className="font-pixel-body text-base text-muted-neon mt-3.5 max-w-lg">
           Turn your Solana history into a collectible island. Each protocol you
           use unlocks a unique pixel building.
@@ -142,7 +142,7 @@ export function Hero() {
           ▶ Connect wallet to start
         </Button>
       </div>
-      <Card accent="violet" padding="default" className="min-w-[280px]">
+      <Card accent="violet" padding="default" className="min-w-70">
         <div className="flex items-center gap-6">
           <div>
             <div className="font-silk text-[8px] text-muted-neon">LANDS MINTED</div>

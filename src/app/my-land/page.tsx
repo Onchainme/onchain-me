@@ -107,7 +107,7 @@ export default function MyLandPage() {
             </Button>
           }
         >
-          <div className="relative h-[800px] flex items-center justify-center">
+          <div className="relative h-200 flex items-center justify-center">
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
@@ -127,7 +127,7 @@ export default function MyLandPage() {
               {helperText}
             </div>
             {errorView ? (
-              <div className="absolute top-4 left-4 z-20 max-w-[420px] rounded border-2 border-magenta-neon bg-[rgba(26,15,46,0.92)] px-3 py-2 shadow-[0_0_16px_rgba(255,45,147,0.2)]">
+              <div className="absolute top-4 left-4 z-20 max-w-105 rounded border-2 border-magenta-neon bg-[rgba(26,15,46,0.92)] px-3 py-2 shadow-[0_0_16px_rgba(255,45,147,0.2)]">
                 <div className="flex items-start gap-2">
                   <span className={`${UI_TEXT.labelText} text-magenta-neon`}>!</span>
                   <div className="min-w-0">
@@ -147,7 +147,7 @@ export default function MyLandPage() {
               </div>
             ) : null}
             {!isLoading && !loadError && (eligibleCount > 0 || claimedCount > 0) ? (
-              <div className="absolute top-4 right-4 z-20 rounded border-2 border-border-neon bg-bg-2 px-3 py-2">
+              <div className="absolute top-12 right-0 z-20 rounded border-2 border-border-neon bg-bg-2 px-3 py-2">
                 <div className={`${UI_TEXT.labelText} text-cyan-neon`}>
                   INVENTORY: {claimedCount} CLAIMED · {eligibleCount} ELIGIBLE
                 </div>
@@ -161,11 +161,6 @@ export default function MyLandPage() {
               >
                 Go to Edit to place objects
               </Button>
-            ) : null}
-            {!isLoading && !loadError ? (
-              <div className={`${UI_TEXT.labelText} absolute bottom-4 right-4 text-muted-neon`}>
-                API: /api/v1/lands/{`{wallet}`} + /inventory
-              </div>
             ) : null}
             {!isLoading && !loadError && placed.length > 0 ? (
               <div className={`${UI_TEXT.labelText} absolute top-16 right-4 text-muted-neon`}>
