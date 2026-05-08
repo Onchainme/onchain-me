@@ -8,9 +8,9 @@ export type LandsSort = "recent" | "score";
 export interface ApiLand {
   wallet: string;
   ogImageUrl: string | null;
-  objectsCount?: number;
-  score?: number;
-  rank?: number;
+  objectsCount: number;
+  score: number;
+  rank: number;
 }
 
 export interface LandsPage {
@@ -55,17 +55,7 @@ export async function fetchLands({
     throw new ApiError(`Failed to fetch lands: ${res.status}`, res.status);
   }
 
-  const json = (await res.json()) as LandsPage;
-  return {
-    items: json.items.map((item) => ({
-      wallet: item.wallet,
-      ogImageUrl: item.ogImageUrl ?? null,
-      objectsCount: item.objectsCount ?? 0,
-      score: item.score ?? 0,
-      rank: item.rank,
-    })),
-    nextCursor: json.nextCursor ?? null,
-  };
+  return (await res.json()) as LandsPage;
 }
 
 export type FeedItem =
@@ -136,80 +126,215 @@ export async function fetchBadges(signal?: AbortSignal): Promise<Badge[]> {
   return json.items;
 }
 
-export interface ApiLandDetails {
-  wallet: string;
-  stats: {
-    protocols: number;
-    transactions: number;
-    score: number;
-  };
-  placements: Array<{
-    badgeId: string;
-    x: number;
-    y: number;
-  }>;
-  ogImageUrl: string | null;
-}
-
-export interface ApiInventoryClaimedItem {
+export interface InventoryClaimedApi {
   badgeId: string;
   weight: number;
   assetId: string;
 }
 
-export interface ApiInventoryEligibleItem {
+export interface InventoryEligibleApi {
   badgeId: string;
   weight: number;
   eligibleSince: string;
-  meta?: Record<string, string>;
+  meta: Record<string, unknown>;
 }
 
-export interface ApiInventory {
-  claimed: ApiInventoryClaimedItem[];
-  eligible: ApiInventoryEligibleItem[];
+export interface InventoryResponse {
+  claimed: InventoryClaimedApi[];
+  eligible: InventoryEligibleApi[];
 }
 
-export async function fetchLandByWallet(
+export async function fetchInventory(
   wallet: string,
   signal?: AbortSignal,
-): Promise<ApiLandDetails> {
-  const encodedWallet = encodeURIComponent(wallet);
-  const res = await fetch(`${API_BASE_URL}/api/v1/lands/${encodedWallet}`, {
-    cache: "no-store",
+): Promise<InventoryResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/lands/${wallet}/inventory`, {
     credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch inventory: ${res.status}`, res.status);
+  }
+  return (await res.json()) as InventoryResponse;
+}
+
+export async function requestMintSingle(badgeId: string): Promise<{
+  transaction: string;
+  badgeId: string;
+  expiresAt: string;
+}> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/mint/single`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ badgeId }),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`mint/single failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as { transaction: string; badgeId: string; expiresAt: string };
+}
+
+export async function confirmMint(
+  signature: string,
+  badgeId: string,
+): Promise<{
+  badgeId: string;
+  mintSignature: string;
+  assetId: string | null;
+  alreadyClaimed: boolean;
+}> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/mint/confirm`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ signature, badgeId }),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`mint/confirm failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as {
+    badgeId: string;
+    mintSignature: string;
+    assetId: string | null;
+    alreadyClaimed: boolean;
+  };
+}
+
+export async function seedEligibility(badgeId: string): Promise<{ created: boolean }> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/dev/seed-eligibility`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ badgeId }),
+  });
+  if (!res.ok) {
+    throw new ApiError(`seed-eligibility failed: ${res.status}`, res.status);
+  }
+  return (await res.json()) as { created: boolean };
+}
+
+export interface LandPlacementApi {
+  badgeId: string;
+  x: number;
+  y: number;
+}
+
+export interface LandResponse {
+  wallet: string;
+  stats: {
+    protocols: number;
+    transactions: number;
+    score: number;
+    rank: number;
+  };
+  placements: LandPlacementApi[];
+  ogImageUrl: string | null;
+}
+
+export async function fetchLand(wallet: string, signal?: AbortSignal): Promise<LandResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/lands/${wallet}`, {
+    cache: "no-store",
     signal,
   });
   if (!res.ok) {
     throw new ApiError(`Failed to fetch land: ${res.status}`, res.status);
   }
-  return (await res.json()) as ApiLandDetails;
+  return (await res.json()) as LandResponse;
 }
 
-export async function fetchLandInventory(
+export async function putPlacements(
   wallet: string,
-  signal?: AbortSignal,
-): Promise<ApiInventory> {
-  const encodedWallet = encodeURIComponent(wallet);
-  const res = await fetch(
-    `${API_BASE_URL}/api/v1/lands/${encodedWallet}/inventory`,
-    {
-      cache: "no-store",
-      credentials: "include",
-      signal,
-    },
-  );
+  placements: LandPlacementApi[],
+): Promise<{ ok: true; count: number }> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/placements/${wallet}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ placements }),
+  });
   if (!res.ok) {
-    throw new ApiError(`Failed to fetch land inventory: ${res.status}`, res.status);
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`placements PUT failed: ${detail}`, res.status);
   }
-  return (await res.json()) as ApiInventory;
+  return (await res.json()) as { ok: true; count: number };
 }
+
+export interface ImportResult {
+  imported: number;
+  badgeIds: string[];
+  skipped: number;
+  assetsScanned: number;
+  scoreDelta: number;
+}
+
+export async function importCnfts(): Promise<ImportResult> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/import/scan-cnfts`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`import/scan-cnfts failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as ImportResult;
+}
+
+export async function seedAllEligibilities(): Promise<{ badgeIds: string[]; createdCount: number }> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/dev/seed-eligibilities-all`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) {
+    throw new ApiError(`seed-eligibilities-all failed: ${res.status}`, res.status);
+  }
+  return (await res.json()) as { badgeIds: string[]; createdCount: number };
+}
+
+// ---------------------------------------------------------------------------
+// Backwards-compatibility aliases — older code on the `dev` branch (e.g.
+// app/my-land/page.tsx) imports these names. Forwarding to the canonical
+// fetchLand/fetchInventory keeps that code working without a refactor.
+// ---------------------------------------------------------------------------
+export type ApiLandDetails = LandResponse;
+export type ApiInventory = InventoryResponse;
+export type ApiInventoryClaimedItem = InventoryClaimedApi;
+export type ApiInventoryEligibleItem = InventoryEligibleApi;
+
+export const fetchLandByWallet = (wallet: string, signal?: AbortSignal) =>
+  fetchLand(wallet, signal);
+export const fetchLandInventory = (wallet: string, signal?: AbortSignal) =>
+  fetchInventory(wallet, signal);
 
 // Map an API land into the dashboard's LandSummary view-model.
 export function toLandSummary(item: ApiLand): LandSummary {
   return {
     address: item.wallet,
-    objectsCount: item.objectsCount ?? 0,
-    points: item.score ?? 0,
+    objectsCount: item.objectsCount,
+    points: item.score,
     rank: item.rank,
     seed: walletSeed(item.wallet),
   };

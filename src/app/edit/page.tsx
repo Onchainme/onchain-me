@@ -50,6 +50,8 @@ export default function EditPage() {
     rescan,
     eligibleCount,
     claimedCount,
+    error: mintError,
+    busyBadgeId,
   } = useInventory();
 
   const [hovered, setHovered] = useState<number | null>(null);
@@ -79,13 +81,19 @@ export default function EditPage() {
             variant="primary"
             size="lg"
             onClick={() => setMintAllOpen(true)}
-            disabled={eligibleCount === 0}
+            disabled={eligibleCount === 0 || busyBadgeId !== null}
           >
-            <Sparkles className="size-3" /> Mint All ({eligibleCount} eligible)
+            <Sparkles className="size-3" />{" "}
+            {busyBadgeId ? `Minting ${busyBadgeId}…` : `Mint All (${eligibleCount} eligible)`}
           </Button>
           <Button variant="ghost" onClick={rescan}>
             <RefreshCcw className="size-3" /> Update inventory
           </Button>
+          {mintError ? (
+            <div className="border border-red-500 bg-red-950/40 p-2 text-[11px] font-mono text-red-200 break-all">
+              ⚠ {mintError}
+            </div>
+          ) : null}
           <Inventory
             items={inventory}
             activeItemId={activeItemId}

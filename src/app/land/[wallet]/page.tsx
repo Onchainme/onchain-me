@@ -15,10 +15,12 @@ import { StatChip } from "@/components/ui/stat-chip";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import { WalletAvatar } from "@/components/ui/wallet-avatar";
 import { useWallet } from "@/hooks/wallet";
-import { fetchLandByWallet, type ApiLandDetails } from "@/lib/api";
+import { ApiError, fetchLand, type LandResponse } from "@/lib/api";
+import { BADGE_CATALOG, isBadgeId } from "@/lib/badge-catalog";
+import { tileLabel } from "@/lib/mock-data";
 import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
-import { cn, shortWallet } from "@/lib/utils";
-import type { BuildingType, LandObject } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { LandObject } from "@/lib/types";
 
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
@@ -28,61 +30,83 @@ const ShareModal = dynamic(
 const ISLAND_W = 760;
 const ISLAND_H = 560;
 
+function shortAddress(addr: string): string {
+  if (addr.length < 10) return addr;
+  return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
+}
+
+function buildLandObjects(land: LandResponse): LandObject[] {
+  return land.placements.flatMap<LandObject>((p) => {
+    if (!isBadgeId(p.badgeId)) return [];
+    const def = BADGE_CATALOG[p.badgeId];
+    return [
+      {
+        id: `placed:${p.badgeId}:${p.x}:${p.y}`,
+        badgeId: p.badgeId,
+        gx: p.x,
+        gy: p.y,
+        hue: def.hue,
+        glyph: def.glyph,
+        type: def.type,
+        name: def.name,
+        protocol: def.protocol,
+        tile: tileLabel(p.x, p.y),
+        mintedAt: new Date().toISOString().slice(0, 10),
+      },
+    ];
+  });
+}
+
 export default function PublicLandPage() {
   const params = useParams<{ wallet: string }>();
   const search = useSearchParams();
   const { wallet: visitor } = useWallet();
   const [hovered, setHovered] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [landData, setLandData] = useState<ApiLandDetails | null>(null);
-  const [objects, setObjects] = useState<LandObject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [land, setLand] = useState<LandResponse | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
-  const owner = decodeURIComponent(params?.wallet ?? "0xBEEF…0001");
+  const owner = decodeURIComponent(params?.wallet ?? "");
   const incomingRef = search?.get("ref");
-  const hoveredObj = hovered != null ? objects[hovered] : null;
-
-  // Ref-link rule: a connected visitor earns credit with their wallet;
-  // otherwise pass through the incoming ref or default to the owner.
-  const refForLink = useMemo(
-    () => visitor?.shortAddress ?? incomingRef ?? owner,
-    [visitor, incomingRef, owner],
-  );
-  const ownerShort = shortWallet(owner);
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    setIsLoading(true);
-    setLoadError(null);
-    fetchLandByWallet(owner, ctrl.signal)
-      .then((land) => {
-        setLandData(land);
-        const mapped = land.placements.map((placement, index) =>
-          placementToLandObject(placement, index),
-        );
-        setObjects(mapped);
-        setHovered(mapped.length > 0 ? 0 : null);
-      })
-      .catch((e: unknown) => {
-        if (ctrl.signal.aborted) return;
-        setLoadError(e instanceof Error ? e.message : "Failed to load public land");
-        setLandData(null);
-        setObjects([]);
-        setHovered(null);
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setIsLoading(false);
-      });
-    return () => ctrl.abort();
+    if (!owner) return;
+    let cancelled = false;
+    setLand(null);
+    setNotFound(false);
+    void (async () => {
+      try {
+        const data = await fetchLand(owner);
+        if (!cancelled) setLand(data);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setNotFound(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [owner]);
+
+  const objects = useMemo(() => (land ? buildLandObjects(land) : []), [land]);
+  const hoveredObj = hovered != null ? (objects[hovered] ?? null) : null;
+
+  const refForLink = useMemo(
+    () => visitor?.shortAddress ?? incomingRef ?? shortAddress(owner),
+    [visitor, incomingRef, owner],
+  );
+
+  const score = land?.stats.score ?? 0;
+  const rank = land?.stats.rank ?? 0;
 
   return (
     <PageShell>
       <div className={`${UI_LAYOUT.pageContainer} pt-3 flex items-center gap-2 flex-wrap`}>
         <span className={`${UI_TEXT.labelText} text-muted-neon`}>
           <span className="text-cyan-neon">onchain.me</span>/land/
-          <span className="glow-m break-all">{owner}</span>
+          <span className="glow-m">{owner}</span>
         </span>
         {incomingRef ? (
           <span className={`${UI_TEXT.labelTextSm} text-muted-neon`}>
@@ -104,15 +128,18 @@ export default function PublicLandPage() {
             <div className="flex items-center gap-2.5">
               <WalletAvatar size="md" />
               <div>
-                <div className="font-px glow-c text-[12px] 2xl:text-[16px]">{ownerShort}</div>
+                <div className="font-px glow-c text-[12px] 2xl:text-[16px]">
+                  {shortAddress(owner)}
+                </div>
                 <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon">
-                  {ownerShort} · OWNER
+                  {owner} · OWNER
                 </div>
               </div>
             </div>
             <div className="flex gap-2">
               <StatChip label="OBJ" value={objects.length} color="cyan" />
-              <StatChip label="PTS" value={landData?.stats.score ?? 0} color="yellow" />
+              <StatChip label="PTS" value={score.toLocaleString()} color="yellow" />
+              {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" /> : null}
             </div>
           </div>
 
@@ -124,19 +151,13 @@ export default function PublicLandPage() {
               hoveredIndex={hovered}
               onHoverObject={setHovered}
             />
-            {isLoading ? (
-              <div className="absolute inset-0 z-10 grid place-items-center bg-[rgba(10,6,18,0.35)]">
-                <div className={`${UI_TEXT.labelText} glow-c`}>LOADING PUBLIC LAND...</div>
-              </div>
-            ) : null}
             {hoveredObj ? (
               <ObjectTooltip obj={hoveredObj} style={{ left: "52%", top: "18%" }} />
             ) : null}
-            {loadError ? (
-              <div className="absolute top-4 left-4 z-20 max-w-[420px] rounded border-2 border-magenta-neon bg-[rgba(26,15,46,0.92)] px-3 py-2">
-                <div className={`${UI_TEXT.labelText} text-magenta-neon`}>PUBLIC LAND UNAVAILABLE</div>
-                <div className="font-silk text-[11px] text-ink-2 mt-1">
-                  Could not load this wallet land from API.
+            {notFound ? (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="font-px text-[12px] text-muted-neon bg-bg-2 border-2 border-border-neon px-4 py-3">
+                  This wallet has no land yet.
                 </div>
               </div>
             ) : null}
@@ -147,6 +168,7 @@ export default function PublicLandPage() {
           objects={objects}
           hovered={hovered}
           onHover={setHovered}
+          loading={!land && !notFound}
         />
       </div>
 
@@ -160,33 +182,16 @@ export default function PublicLandPage() {
   );
 }
 
-function placementToLandObject(
-  placement: { badgeId: string; x: number; y: number },
-  index: number,
-): LandObject {
-  const parsed = parseBadgeId(placement.badgeId);
-  return {
-    id: `public-${placement.badgeId}-${index}`,
-    gx: clampGrid(placement.x),
-    gy: clampGrid(placement.y),
-    hue: hueFromString(placement.badgeId),
-    glyph: parsed.glyph,
-    type: typeFromString(placement.badgeId),
-    name: parsed.name,
-    protocol: parsed.protocol,
-    tile: tileLabelFromCoords(placement.x, placement.y),
-    mintedAt: "API",
-  };
-}
-
 function PlacedObjectsList({
   objects,
   hovered,
   onHover,
+  loading,
 }: {
   objects: LandObject[];
   hovered: number | null;
   onHover: (i: number | null) => void;
+  loading: boolean;
 }) {
   return (
     <Card padding="lg" className="flex-col min-h-[700px]">
@@ -197,31 +202,36 @@ function PlacedObjectsList({
         </Badge>
       </div>
       <div className="flex flex-col gap-2 overflow-auto flex-1">
-        {objects.map((o, i) => (
-          <button
-            key={o.id}
-            type="button"
-            onMouseEnter={() => onHover(i)}
-            onMouseLeave={() => onHover(null)}
-            className={cn(
-              "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
-              hovered === i
-                ? "bg-panel-2 border-cyan-neon"
-                : "bg-bg-2 border-border-neon",
-            )}
-          >
-            <GlyphTile glyph={o.glyph} hue={o.hue} size="md" />
-            <div className="flex-1 min-w-0">
-              <div className="font-px text-[12px] 2xl:text-[16px] text-ink">{o.name}</div>
-              <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon mt-0.5">
-                {o.protocol} · TILE {o.tile}
+        {loading ? (
+          <div className="font-pixel-body text-sm text-muted-neon p-2">Loading…</div>
+        ) : objects.length === 0 ? (
+          <div className="font-pixel-body text-sm text-muted-neon p-2">
+            No objects placed yet.
+          </div>
+        ) : (
+          objects.map((o, i) => (
+            <button
+              key={o.id}
+              type="button"
+              onMouseEnter={() => onHover(i)}
+              onMouseLeave={() => onHover(null)}
+              className={cn(
+                "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
+                hovered === i
+                  ? "bg-panel-2 border-cyan-neon"
+                  : "bg-bg-2 border-border-neon",
+              )}
+            >
+              <GlyphTile glyph={o.glyph} hue={o.hue} size="md" />
+              <div className="flex-1 min-w-0">
+                <div className="font-px text-[12px] 2xl:text-[16px] text-ink">{o.name}</div>
+                <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon mt-0.5">
+                  {o.protocol} · TILE {o.tile}
+                </div>
               </div>
-            </div>
-            <span className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon-2">
-              {o.mintedAt.slice(5)}
-            </span>
-          </button>
-        ))}
+            </button>
+          ))
+        )}
       </div>
       <Separator variant="dashed" />
       <div className="font-pixel-body text-sm text-muted-neon">
@@ -229,57 +239,4 @@ function PlacedObjectsList({
       </div>
     </Card>
   );
-}
-
-function clampGrid(value: number) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(9, Math.floor(value)));
-}
-
-function tileLabelFromCoords(gx: number, gy: number) {
-  const x = clampGrid(gx);
-  const y = clampGrid(gy);
-  return `${String.fromCharCode(65 + x)}-${y + 1}`;
-}
-
-function parseBadgeId(badgeId: string) {
-  const normalized = badgeId.replace(/[-_]/g, " ").trim();
-  const parts = normalized.split(/\s+/).filter(Boolean);
-  const protocol = parts[0] ? capitalize(parts[0]) : "Protocol";
-  return {
-    protocol,
-    name: parts.map(capitalize).join(" "),
-    glyph: protocol.slice(0, 1).toUpperCase() || "?",
-  };
-}
-
-function capitalize(s: string) {
-  if (!s) return s;
-  return `${s[0].toUpperCase()}${s.slice(1).toLowerCase()}`;
-}
-
-function hueFromString(value: string) {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 31 + value.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % 360;
-}
-
-const BUILDING_TYPES: BuildingType[] = [
-  "tower",
-  "crystal",
-  "tree",
-  "dome",
-  "mushroom",
-  "shrine",
-  "lighthouse",
-];
-
-function typeFromString(value: string): BuildingType {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 17 + value.charCodeAt(i)) | 0;
-  }
-  return BUILDING_TYPES[Math.abs(hash) % BUILDING_TYPES.length];
 }

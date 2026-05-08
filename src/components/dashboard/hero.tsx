@@ -1,16 +1,86 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MiniIsland } from "@/components/canvas/MiniIsland";
 import { useWallet } from "@/hooks/wallet";
 import { STATS } from "@/lib/mock-data";
+import { ApiError, fetchInventory, fetchLand } from "@/lib/api";
+
+interface HeroStats {
+  eligible: number;
+  claimed: number;
+  rank: number;
+  score: number;
+  transactions: number;
+  protocols: number;
+}
 
 export function Hero() {
-  const { isConnected, openConnectModal } = useWallet();
+  const { isConnected, openConnectModal, wallet } = useWallet();
+  const [stats, setStats] = useState<HeroStats | null>(null);
+
+  useEffect(() => {
+    if (!wallet?.address) {
+      setStats(null);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [inv, land] = await Promise.all([
+          fetchInventory(wallet.address),
+          fetchLand(wallet.address).catch((err) => {
+            if (err instanceof ApiError && err.status === 404) return null;
+            throw err;
+          }),
+        ]);
+        if (cancelled) return;
+        setStats({
+          eligible: inv.eligible.length,
+          claimed: inv.claimed.length,
+          rank: land?.stats.rank ?? 0,
+          score: land?.stats.score ?? 0,
+          transactions: land?.stats.transactions ?? 0,
+          protocols: land?.stats.protocols ?? 0,
+        });
+      } catch {
+        if (!cancelled) setStats(null);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet?.address]);
 
   if (isConnected) {
+    const eligible = stats?.eligible ?? 0;
+    const claimed = stats?.claimed ?? 0;
+    const rankLine =
+      stats && stats.rank > 0 ? (
+        <>
+          <span className="text-ink-2">Your island is </span>
+          <span className="glow-m">rank #{stats.rank}</span>
+          {stats.score > 0 ? (
+            <>
+              <span className="text-ink-2"> · </span>
+              <span className="glow-y">{stats.score} pts</span>
+            </>
+          ) : null}
+        </>
+      ) : (
+        <span className="text-ink-2">Your island awaits.</span>
+      );
+
+    const headlineMain = eligible > 0
+      ? <><span className="glow-c">{eligible} OBJECTS</span> <span className="text-ink-2">eligible to mint.</span></>
+      : claimed > 0
+      ? <><span className="glow-c">{claimed} OBJECTS</span> <span className="text-ink-2">claimed — place them on your land.</span></>
+      : <span className="text-ink-2">No badges yet — open Edit to scan.</span>;
+
     return (
       <Card
         accent="magenta"
@@ -26,22 +96,20 @@ export function Hero() {
               WELCOME BACK
             </div>
             <div className="font-px text-[20px] mt-1.5 leading-snug">
-              <span className="glow-c">4 OBJECTS</span>{" "}
-              <span className="text-ink-2">eligible to mint.</span>
+              {headlineMain}
               <br />
-              <span className="text-ink-2">Your island is </span>
-              <span className="glow-m">rank #47</span>
-              <span className="text-ink-2"> — </span>
-              <span className="glow-y">top 3%</span>
+              {rankLine}
             </div>
             <div className="font-pixel-body text-base text-muted-neon mt-1.5">
-              Wallet age: 2y · First tx Apr 2024 · 1,284 total transactions.
+              {stats
+                ? `${stats.protocols} protocol${stats.protocols === 1 ? "" : "s"} · ${stats.transactions.toLocaleString()} transaction${stats.transactions === 1 ? "" : "s"} indexed`
+                : "Loading wallet stats…"}
             </div>
           </div>
           <div className="flex flex-col gap-2 min-w-[200px]">
             <Button variant="primary" size="lg" asChild>
               <Link href="/edit" prefetch={false} className="w-full">
-                ✨ Mint All (4)
+                {eligible > 0 ? `✨ Mint All (${eligible})` : "→ Open Edit"}
               </Link>
             </Button>
             <Button variant="ghost" size="sm" asChild>

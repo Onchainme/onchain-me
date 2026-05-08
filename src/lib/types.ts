@@ -9,6 +9,7 @@ export type BuildingType =
 
 export interface LandObject {
   id: string;
+  badgeId?: string;
   gx: number;
   gy: number;
   hue: number;
@@ -22,6 +23,7 @@ export interface LandObject {
 
 export interface InventoryItem {
   id: string;
+  badgeId: string;
   glyph: string;
   label: string;
   protocol: string;

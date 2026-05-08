@@ -1,30 +1,46 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Connection, VersionedTransaction } from "@solana/web3.js";
+import bs58 from "bs58";
 import type { InventoryItem, LandObject } from "@/lib/types";
-import { INITIAL_INVENTORY, PLACED_OBJECTS, tileLabel } from "@/lib/mock-data";
+import { tileLabel } from "@/lib/mock-data";
+import { BADGE_CATALOG, isBadgeId } from "@/lib/badge-catalog";
+import {
+  ApiError,
+  confirmMint,
+  fetchInventory,
+  fetchLand,
+  importCnfts,
+  putPlacements,
+  requestMintSingle,
+  seedAllEligibilities,
+  type InventoryResponse,
+  type LandPlacementApi,
+} from "@/lib/api";
+import { useWallet } from "@/hooks/wallet";
 
 interface UseInventoryResult {
   inventory: InventoryItem[];
   placed: LandObject[];
   activeItemId: string | null;
   setActiveItem: (id: string | null) => void;
-  /** Place the active (claimed) inventory item on the given tile. Returns true on success. */
   placeAt: (gx: number, gy: number) => boolean;
-  /** Remove a placed object from the board, returning its inventory entry to `claimed`. */
   removeObject: (placedId: string) => void;
-  /** Mint a single eligible item → claimed. */
-  mintItem: (inventoryId: string) => void;
-  /** Mint every eligible item in one batch. */
-  mintAll: () => void;
-  /** Simulate a wallet rescan — re-flag eligible items as "new" so the UI pulses. */
-  rescan: () => void;
+  mintItem: (inventoryId: string) => Promise<void>;
+  mintAll: () => Promise<void>;
+  rescan: () => Promise<void>;
+  seedAll: () => Promise<void>;
   eligibleCount: number;
   claimedCount: number;
+  loading: boolean;
+  error: string | null;
+  busyBadgeId: string | null;
 }
 
-/** Prefix embedded in placed-object ids so we can map back to the inventory source. */
 const PLACED_PREFIX = "placed:";
+const SOLANA_RPC_URL =
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 
 function placedIdFor(inventoryId: string) {
   return `${PLACED_PREFIX}${inventoryId}:${Date.now()}`;
@@ -37,32 +53,163 @@ function inventoryIdFromPlaced(placedId: string): string | null {
   return sep === -1 ? withoutPrefix : withoutPrefix.slice(0, sep);
 }
 
-function objectKey(protocol: string, name: string) {
-  return `${protocol.toLowerCase()}::${name.toLowerCase()}`;
+function buildInventoryFromApi(
+  api: InventoryResponse,
+  placedBadgeIds: Set<string>,
+): InventoryItem[] {
+  const out: InventoryItem[] = [];
+  for (const claim of api.claimed) {
+    if (!isBadgeId(claim.badgeId)) continue;
+    const def = BADGE_CATALOG[claim.badgeId];
+    out.push({
+      id: `inv-${claim.badgeId}`,
+      badgeId: claim.badgeId,
+      glyph: def.glyph,
+      label: def.label,
+      protocol: def.protocol,
+      name: def.name,
+      hue: def.hue,
+      type: def.type,
+      state: placedBadgeIds.has(claim.badgeId) ? "placed" : "claimed",
+    });
+  }
+  for (const elig of api.eligible) {
+    if (!isBadgeId(elig.badgeId)) continue;
+    const def = BADGE_CATALOG[elig.badgeId];
+    out.push({
+      id: `inv-${elig.badgeId}`,
+      badgeId: elig.badgeId,
+      glyph: def.glyph,
+      label: def.label,
+      protocol: def.protocol,
+      name: def.name,
+      hue: def.hue,
+      type: def.type,
+      state: "eligible",
+      isNew: true,
+    });
+  }
+  return out;
 }
 
-function seedPlacedObjects(
-  source: LandObject[],
-  inventory: InventoryItem[],
-): LandObject[] {
-  const inventoryByKey = new Map<string, string>();
-  inventory.forEach((item) => {
-    inventoryByKey.set(objectKey(item.protocol, item.name), item.id);
-  });
+function buildPlacedFromApi(placements: LandPlacementApi[]): LandObject[] {
+  const out: LandObject[] = [];
+  for (const p of placements) {
+    if (!isBadgeId(p.badgeId)) continue;
+    const def = BADGE_CATALOG[p.badgeId];
+    out.push({
+      id: `placed:inv-${p.badgeId}:${p.x}:${p.y}`,
+      badgeId: p.badgeId,
+      gx: p.x,
+      gy: p.y,
+      hue: def.hue,
+      glyph: def.glyph,
+      type: def.type,
+      name: def.name,
+      protocol: def.protocol,
+      tile: tileLabel(p.x, p.y),
+      mintedAt: new Date().toISOString().slice(0, 10),
+    });
+  }
+  return out;
+}
 
-  return source.map((obj) => {
-    const inventoryId = inventoryByKey.get(objectKey(obj.protocol, obj.name));
-    if (!inventoryId) return obj;
-    return { ...obj, id: placedIdFor(inventoryId) };
-  });
+function decodeBase64(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 export function useInventory(): UseInventoryResult {
-  const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
-  const [placed, setPlaced] = useState<LandObject[]>(() =>
-    seedPlacedObjects(PLACED_OBJECTS, INITIAL_INVENTORY),
-  );
+  const { wallet } = useWallet();
+  const walletAddress = wallet?.address ?? null;
+
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [placed, setPlaced] = useState<LandObject[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busyBadgeId, setBusyBadgeId] = useState<string | null>(null);
+
+  const connectionRef = useRef<Connection | null>(null);
+  if (!connectionRef.current) {
+    connectionRef.current = new Connection(SOLANA_RPC_URL, "confirmed");
+  }
+  // Track per-wallet whether we've already run on-chain import this session,
+  // so we don't hammer DAS on every refresh.
+  const importedForWalletRef = useRef<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!walletAddress) {
+      setInventory([]);
+      setPlaced([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      // First time we see this wallet in the session, scan its on-chain
+      // cNFTs and import any minted-but-not-tracked badges. Idempotent on the
+      // backend, but skipping the round-trip on subsequent refreshes is nicer.
+      if (importedForWalletRef.current !== walletAddress) {
+        try {
+          const r = await importCnfts();
+          if (r.imported > 0) {
+            console.log(
+              `[import] backfilled ${r.imported} on-chain cNFTs (+${r.scoreDelta} pts): ${r.badgeIds.join(", ")}`,
+            );
+          }
+          importedForWalletRef.current = walletAddress;
+        } catch (err) {
+          // Non-fatal: just log. The user can still mint; they may end up with
+          // duplicates if the import is unavailable.
+          console.warn("[import] failed", err);
+        }
+      }
+
+      // Fetch inventory + land in parallel. Land may 404 if user has no
+      // placements + no claims yet — treat as "empty placements".
+      const [invApi, landApi] = await Promise.all([
+        fetchInventory(walletAddress),
+        fetchLand(walletAddress).catch((err) => {
+          if (err instanceof ApiError && err.status === 404) return null;
+          throw err;
+        }),
+      ]);
+      const placements = landApi?.placements ?? [];
+      const placedBadgeIds = new Set(placements.map((p) => p.badgeId));
+      setInventory(buildInventoryFromApi(invApi, placedBadgeIds));
+      setPlaced(buildPlacedFromApi(placements));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to load inventory");
+    } finally {
+      setLoading(false);
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const persistPlacements = useCallback(
+    async (next: LandObject[]) => {
+      if (!walletAddress) return;
+      try {
+        await putPlacements(
+          walletAddress,
+          next.map((o) => ({ badgeId: o.badgeId ?? "", x: o.gx, y: o.gy })).filter(
+            (p) => p.badgeId.length > 0,
+          ),
+        );
+      } catch (err) {
+        // Surface the error and refresh to stay in sync with the server.
+        setError(err instanceof Error ? err.message : "save placements failed");
+        await refresh();
+      }
+    },
+    [walletAddress, refresh],
+  );
 
   const placeAt = useCallback(
     (gx: number, gy: number) => {
@@ -70,11 +217,13 @@ export function useInventory(): UseInventoryResult {
       const item = inventory.find((i) => i.id === activeItemId);
       if (!item || item.state !== "claimed") return false;
       if (placed.some((o) => o.gx === gx && o.gy === gy)) return false;
+      if (placed.some((o) => o.badgeId === item.badgeId)) return false;
 
-      setPlaced((prev) => [
-        ...prev,
+      const next: LandObject[] = [
+        ...placed,
         {
           id: placedIdFor(item.id),
+          badgeId: item.badgeId,
           gx,
           gy,
           hue: item.hue,
@@ -85,48 +234,167 @@ export function useInventory(): UseInventoryResult {
           tile: tileLabel(gx, gy),
           mintedAt: new Date().toISOString().slice(0, 10),
         },
-      ]);
+      ];
+      setPlaced(next);
       setInventory((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, state: "placed" } : i)),
       );
       setActiveItemId(null);
+      void persistPlacements(next);
       return true;
     },
-    [activeItemId, inventory, placed],
+    [activeItemId, inventory, placed, persistPlacements],
   );
 
-  const removeObject = useCallback((placedId: string) => {
-    setPlaced((prev) => prev.filter((o) => o.id !== placedId));
-    const inventoryId = inventoryIdFromPlaced(placedId);
-    if (!inventoryId) return;
-    setInventory((prev) =>
-      prev.map((i) => (i.id === inventoryId ? { ...i, state: "claimed" } : i)),
-    );
-  }, []);
+  const removeObject = useCallback(
+    (placedId: string) => {
+      const target = placed.find((o) => o.id === placedId);
+      if (!target) return;
+      const next = placed.filter((o) => o.id !== placedId);
+      setPlaced(next);
+      const inventoryId = inventoryIdFromPlaced(placedId);
+      if (inventoryId) {
+        setInventory((prev) =>
+          prev.map((i) => (i.id === inventoryId ? { ...i, state: "claimed" } : i)),
+        );
+      }
+      void persistPlacements(next);
+    },
+    [placed, persistPlacements],
+  );
 
-  const mintItem = useCallback((inventoryId: string) => {
-    setInventory((prev) =>
-      prev.map((i) =>
-        i.id === inventoryId && i.state === "eligible"
-          ? { ...i, state: "claimed", isNew: false }
-          : i,
-      ),
-    );
-  }, []);
+  const mintBadge = useCallback(
+    async (badgeId: string) => {
+      if (!walletAddress) throw new Error("Wallet not connected");
 
-  const mintAll = useCallback(() => {
-    setInventory((prev) =>
-      prev.map((i) =>
-        i.state === "eligible" ? { ...i, state: "claimed", isNew: false } : i,
-      ),
-    );
-  }, []);
+      setBusyBadgeId(badgeId);
+      setError(null);
+      try {
+        console.log(`[mint] ${badgeId}: requesting tx from backend...`);
+        const { transaction } = await requestMintSingle(badgeId);
+        console.log(`[mint] ${badgeId}: got tx (${transaction.length} chars b64)`);
+        const txBytes = decodeBase64(transaction);
+        const tx = VersionedTransaction.deserialize(txBytes);
+        console.log(`[mint] ${badgeId}: deserialized, signers count=${tx.signatures.length}`);
 
-  const rescan = useCallback(() => {
-    setInventory((prev) =>
-      prev.map((i) => ({ ...i, isNew: i.state === "eligible" })),
-    );
-  }, []);
+        // In Bubblegum mintV1, only the mint authority signs (already done by the
+        // backend). leafOwner is a read-only non-signer, so we don't ask the wallet
+        // to sign — Phantom would otherwise see the user is not in the signer list,
+        // mark the simulation as reverted, and corrupt the tx if the user clicked
+        // through. Submit the partially-signed tx as-is.
+        const connection = connectionRef.current!;
+        let sig: string;
+        try {
+          sig = await connection.sendRawTransaction(tx.serialize(), {
+            skipPreflight: false,
+            maxRetries: 3,
+          });
+        } catch (err) {
+          console.error(`[mint] ${badgeId}: sendRawTransaction failed`, err);
+          throw err;
+        }
+        console.log(`[mint] ${badgeId}: sent, signature=${sig}`);
+
+        const latest = await connection.getLatestBlockhash("confirmed");
+        try {
+          await connection.confirmTransaction(
+            {
+              signature: sig,
+              blockhash: latest.blockhash,
+              lastValidBlockHeight: latest.lastValidBlockHeight,
+            },
+            "confirmed",
+          );
+        } catch (err) {
+          console.error(`[mint] ${badgeId}: confirmTransaction failed`, err);
+          throw err;
+        }
+        console.log(`[mint] ${badgeId}: confirmed on-chain`);
+
+        const signatureB58 =
+          typeof sig === "string" ? sig : bs58.encode(sig as unknown as Uint8Array);
+
+        // Backend confirm — retry briefly: tx may still be propagating to RPC the
+        // backend uses, even after we've seen it confirmed locally.
+        let lastErr: unknown = null;
+        for (let i = 0; i < 6; i++) {
+          try {
+            await confirmMint(signatureB58, badgeId);
+            console.log(`[mint] ${badgeId}: backend confirmed (attempt ${i + 1})`);
+            lastErr = null;
+            break;
+          } catch (err) {
+            lastErr = err;
+            const status = err instanceof ApiError ? err.status : 0;
+            console.warn(`[mint] ${badgeId}: backend confirm attempt ${i + 1} failed (status ${status})`, err);
+            if (status !== 422) break;
+            await new Promise((r) => setTimeout(r, 1500));
+          }
+        }
+        if (lastErr) throw lastErr;
+      } catch (err) {
+        console.error(`[mint] ${badgeId}: FAILED`, err);
+        throw err;
+      } finally {
+        setBusyBadgeId(null);
+      }
+    },
+    [walletAddress],
+  );
+
+  const mintItem = useCallback(
+    async (inventoryId: string) => {
+      const item = inventory.find((i) => i.id === inventoryId);
+      if (!item || item.state !== "eligible") return;
+      try {
+        await mintBadge(item.badgeId);
+        await refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "mint failed");
+      }
+    },
+    [inventory, mintBadge, refresh],
+  );
+
+  const mintAll = useCallback(async () => {
+    const eligible = inventory.filter((i) => i.state === "eligible");
+    for (const item of eligible) {
+      try {
+        await mintBadge(item.badgeId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : `mint ${item.badgeId} failed`);
+        break;
+      }
+    }
+    await refresh();
+  }, [inventory, mintBadge, refresh]);
+
+  const seedAll = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      await seedAllEligibilities();
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "seed failed");
+    }
+  }, [walletAddress, refresh]);
+
+  // Dev convenience: when the user clicks "Update inventory" with an empty list,
+  // seed every badge as eligible so the mint flow has something to act on. Skips
+  // the seed if the user already has any badges (real or seeded).
+  const smartRescan = useCallback(async () => {
+    if (!walletAddress) return;
+    if (inventory.length === 0) {
+      try {
+        await seedAllEligibilities();
+      } catch (err) {
+        // Non-fatal: surface error but still refresh so a real backend with
+        // disabled dev routes still updates the visible state.
+        setError(err instanceof Error ? err.message : "seed failed");
+      }
+    }
+    await refresh();
+  }, [walletAddress, inventory.length, refresh]);
 
   const eligibleCount = useMemo(
     () => inventory.filter((i) => i.state === "eligible").length,
@@ -146,8 +414,12 @@ export function useInventory(): UseInventoryResult {
     removeObject,
     mintItem,
     mintAll,
-    rescan,
+    rescan: smartRescan,
+    seedAll,
     eligibleCount,
     claimedCount,
+    loading,
+    error,
+    busyBadgeId,
   };
 }
