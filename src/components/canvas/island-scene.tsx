@@ -1,12 +1,16 @@
 "use client";
 
 import { Application, extend } from "@pixi/react";
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
-import { useCallback, useMemo, useState } from "react";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
+// Importing from `pixi.js/gif` also runs its init.js side effect, which
+// registers the GifAsset extension — that's what lets Assets.load(*.gif)
+// resolve to a GifSource we can hand to GifSprite.
+import { GifSprite, type GifSource } from "pixi.js/gif";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { LandObject } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/api";
-import { badgePreviewUrl, isBadgeId } from "@/lib/badge-catalog";
+import { badgeAnimationUrl, badgePreviewUrl, isBadgeId } from "@/lib/badge-catalog";
 import {
   BLOCK_H,
   SIDE_LAYERS,
@@ -22,9 +26,96 @@ import {
 import { getBuildingShape, type Pixel } from "./building-shapes";
 import { Hamsters } from "./Hamsters";
 
-extend({ Container, Graphics, Sprite });
+extend({ Container, Graphics, Sprite, GifSprite });
+
+// GifSprite is exported from `pixi.js/gif`, not the main `pixi.js` entry, so
+// @pixi/react's auto-generated JSX types don't include `pixiGifSprite`. We
+// teach React/JSX about it manually here — runtime registration is handled
+// by extend() above; this just satisfies TypeScript.
+type GifSpriteProps = {
+  source: GifSource;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  anchor?: { x: number; y: number } | number;
+  eventMode?: "none" | "passive" | "auto" | "static" | "dynamic";
+  cursor?: string;
+  loop?: boolean;
+  autoPlay?: boolean;
+  animationSpeed?: number;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
+  onPointerTap?: () => void;
+};
+
+declare module "react/jsx-runtime" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      pixiGifSprite: GifSpriteProps;
+    }
+  }
+}
+declare module "react/jsx-dev-runtime" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      pixiGifSprite: GifSpriteProps;
+    }
+  }
+}
+declare module "react" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      pixiGifSprite: GifSpriteProps;
+    }
+  }
+}
 
 const BADGE_SPRITE_SIZE = 40;
+
+/**
+ * Cache GifSource per URL across mounts. Assets.load already deduplicates,
+ * but keeping a local sync map lets us skip the loading state when the same
+ * GIF mounts a second time (e.g. user re-enters /edit) — animation pops in
+ * immediately instead of flashing the PNG fallback.
+ */
+const gifSourceCache = new Map<string, GifSource>();
+
+function useGifSource(url: string): GifSource | null {
+  const [source, setSource] = useState<GifSource | null>(
+    () => gifSourceCache.get(url) ?? null,
+  );
+
+  useEffect(() => {
+    const cached = gifSourceCache.get(url);
+    if (cached) {
+      setSource(cached);
+      return;
+    }
+    let cancelled = false;
+    // `scaleMode: 'nearest'` keeps the pixel-art look crisp when the sprite
+    // is scaled down to BADGE_SPRITE_SIZE × BADGE_SPRITE_SIZE.
+    Assets.load<GifSource>({ src: url, data: { scaleMode: "nearest" } })
+      .then((s) => {
+        if (cancelled) return;
+        gifSourceCache.set(url, s);
+        setSource(s);
+      })
+      .catch((err) => {
+        // Network/parse error — caller falls back to static PNG. Don't crash
+        // the canvas.
+        if (!cancelled) console.warn("[island] gif load failed", url, err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  return source;
+}
 
 export interface IslandSceneProps {
   width: number;
@@ -476,25 +567,28 @@ function BuildingSprite({
   onHoverObject?: (i: number | null) => void;
   onObjectClick?: (obj: LandObject) => void;
 }) {
-  // Prefer the badge PNG preview when this object maps to a known badge id.
-  // Pixi can't natively animate GIFs, so the static first-frame preview goes
-  // on the tile; the inventory sidebar still shows the GIF animation.
-  const previewUrl =
-    obj.badgeId && isBadgeId(obj.badgeId) ? badgePreviewUrl(API_BASE_URL, obj.badgeId) : null;
-
-  if (previewUrl) {
-    return (
-      <BadgeSprite
-        url={previewUrl}
-        obj={obj}
-        index={index}
-        x={x}
-        y={y}
-        isHover={isHover}
-        onHoverObject={onHoverObject}
-        onObjectClick={onObjectClick}
-      />
-    );
+  // Map LandObject → badge: animated GIF on the tile (with PNG fallback while
+  // the GIF decodes). Non-badge objects fall through to the legacy procedural
+  // pixel-art building.
+  if (obj.badgeId && isBadgeId(obj.badgeId)) {
+    const gifUrl = badgeAnimationUrl(API_BASE_URL, obj.badgeId);
+    const previewUrl = badgePreviewUrl(API_BASE_URL, obj.badgeId);
+    // Both return non-null when isBadgeId() is true — narrow for TS.
+    if (gifUrl && previewUrl) {
+      return (
+        <BadgeSprite
+          gifUrl={gifUrl}
+          previewUrl={previewUrl}
+          obj={obj}
+          index={index}
+          x={x}
+          y={y}
+          isHover={isHover}
+          onHoverObject={onHoverObject}
+          onObjectClick={onObjectClick}
+        />
+      );
+    }
   }
 
   return (
@@ -511,7 +605,8 @@ function BuildingSprite({
 }
 
 function BadgeSprite({
-  url,
+  gifUrl,
+  previewUrl,
   obj,
   index,
   x,
@@ -520,7 +615,8 @@ function BadgeSprite({
   onHoverObject,
   onObjectClick,
 }: {
-  url: string;
+  gifUrl: string;
+  previewUrl: string;
   obj: LandObject;
   index: number;
   x: number;
@@ -529,9 +625,10 @@ function BadgeSprite({
   onHoverObject?: (i: number | null) => void;
   onObjectClick?: (obj: LandObject) => void;
 }) {
-  // Texture.from is cached by URL — repeated mounts of the same badge reuse
-  // the same GPU texture.
-  const texture = useMemo(() => Texture.from(url), [url]);
+  const gifSource = useGifSource(gifUrl);
+  // Texture.from is cached by URL — used as instant fallback while the GIF
+  // is still decoding so the tile isn't visually empty.
+  const previewTexture = useMemo(() => Texture.from(previewUrl), [previewUrl]);
   const interactive = !!onHoverObject || !!onObjectClick;
 
   const drawShadow = useCallback(
@@ -549,22 +646,30 @@ function BadgeSprite({
     [x, y, isHover],
   );
 
+  const commonSpriteProps = {
+    x,
+    y: y + 2,
+    anchor: { x: 0.5, y: 1 },
+    width: BADGE_SPRITE_SIZE,
+    height: BADGE_SPRITE_SIZE,
+    eventMode: (interactive ? "static" : "passive") as "static" | "passive",
+    cursor: onObjectClick ? "pointer" : "default",
+    onPointerEnter: () => onHoverObject?.(index),
+    onPointerLeave: () => onHoverObject?.(null),
+    onPointerTap: () => onObjectClick?.(obj),
+  };
+
   return (
     <pixiContainer>
       <pixiGraphics draw={drawShadow} />
-      <pixiSprite
-        texture={texture}
-        x={x}
-        y={y + 2}
-        anchor={{ x: 0.5, y: 1 }}
-        width={BADGE_SPRITE_SIZE}
-        height={BADGE_SPRITE_SIZE}
-        eventMode={interactive ? "static" : "passive"}
-        cursor={onObjectClick ? "pointer" : "default"}
-        onPointerEnter={() => onHoverObject?.(index)}
-        onPointerLeave={() => onHoverObject?.(null)}
-        onPointerTap={() => onObjectClick?.(obj)}
-      />
+      {gifSource ? (
+        // pixiGifSprite is registered via extend({ GifSprite }) at module load.
+        // autoPlay + loop default to true; the shared Pixi ticker drives the
+        // animation, so we just mount it and Pixi handles the per-frame redraw.
+        <pixiGifSprite source={gifSource} {...commonSpriteProps} />
+      ) : (
+        <pixiSprite texture={previewTexture} {...commonSpriteProps} />
+      )}
     </pixiContainer>
   );
 }
