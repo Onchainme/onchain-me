@@ -19,6 +19,7 @@ import {
   type ApiLandDetails,
 } from "@/lib/api";
 import type { BuildingType, LandObject } from "@/lib/types";
+import { shortWallet } from "@/lib/utils";
 
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
@@ -97,8 +98,8 @@ export default function MyLandPage() {
 
   return (
     <PageShell>
-      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 lg:grid-cols-[280px_1fr]`}>
-        <StatsRail address={fullAddress} stats={landData?.stats} />
+      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 md:grid-cols-[340px_1fr]`}>
+        <StatsRail address={shortWallet(fullAddress)} stats={landData?.stats} />
         <MapFrame
           label="YOUR ISLAND"
           action={
@@ -111,6 +112,7 @@ export default function MyLandPage() {
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
+              scale={2}
               objects={placed}
               hoveredIndex={hovered}
               onHoverObject={setHovered}

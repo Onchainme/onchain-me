@@ -17,6 +17,7 @@ import { useInventory } from "@/hooks/use-inventory";
 import { MY_SHORT } from "@/lib/mock-data";
 import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
 import type { InventoryItem } from "@/lib/types";
+import { shortWallet } from "@/lib/utils";
 
 const MintSingleModal = dynamic(
   () =>
@@ -74,9 +75,9 @@ export default function EditPage() {
 
   return (
     <PageShell>
-      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 lg:grid-cols-[340px_1fr]`}>
+      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 md:grid-cols-[340px_1fr]`}>
         <aside className="flex flex-col gap-3">
-          <StatsRail title="Edit" address={address} recent={false} />
+          <StatsRail title="Edit" address={shortWallet(address)} recent={false} />
           <Button
             variant="primary"
             size="lg"
@@ -118,6 +119,7 @@ export default function EditPage() {
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
+              scale={2}
               objects={placed}
               showGrid
               hoveredIndex={hovered}
