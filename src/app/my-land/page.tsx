@@ -19,6 +19,7 @@ import {
   type ApiLandDetails,
 } from "@/lib/api";
 import type { BuildingType, LandObject } from "@/lib/types";
+import { shortWallet } from "@/lib/utils";
 
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
@@ -97,20 +98,21 @@ export default function MyLandPage() {
 
   return (
     <PageShell>
-      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 lg:grid-cols-[280px_1fr]`}>
-        <StatsRail address={fullAddress} stats={landData?.stats} />
+      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 sm:grid-cols-[300px_1fr] md:grid-cols-[340px_1fr]`}>
+        <StatsRail address={shortWallet(fullAddress)} stats={landData?.stats} />
         <MapFrame
           label="YOUR ISLAND"
           action={
-            <Button variant="cyan" onClick={() => setShareOpen(true)}>
-              ↗ Share the Land
+            <Button variant="cyan" size="sm" className="sm:h-9 sm:px-3.5 sm:text-[12px]" onClick={() => setShareOpen(true)}>
+              ↗ Share<span className="hidden sm:inline">&nbsp;the Land</span>
             </Button>
           }
         >
-          <div className="relative h-200 flex items-center justify-center">
+          <div className="relative min-h-[360px] sm:min-h-[700px] flex items-center justify-center pt-8 sm:pt-0">
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
+              scale={2}
               objects={placed}
               hoveredIndex={hovered}
               onHoverObject={setHovered}
@@ -121,13 +123,13 @@ export default function MyLandPage() {
               </div>
             ) : null}
             {hoveredObj ? (
-              <ObjectTooltip obj={hoveredObj} style={{ left: "54%", top: "10%" }} />
+              <ObjectTooltip obj={hoveredObj} className="left-2 top-2 sm:left-auto sm:right-4 sm:top-12" />
             ) : null}
-            <div className={`${UI_TEXT.labelText} absolute bottom-4 left-4 text-muted-neon`}>
+            <div className={`${UI_TEXT.labelText} absolute bottom-2 left-2 sm:bottom-4 sm:left-4 text-muted-neon max-w-[calc(100%-1rem)] truncate`}>
               {helperText}
             </div>
             {errorView ? (
-              <div className="absolute top-4 left-4 z-20 max-w-105 rounded border-2 border-magenta-neon bg-[rgba(26,15,46,0.92)] px-3 py-2 shadow-[0_0_16px_rgba(255,45,147,0.2)]">
+              <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-auto z-20 sm:max-w-105 rounded border-2 border-magenta-neon bg-[rgba(26,15,46,0.92)] px-3 py-2 shadow-[0_0_16px_rgba(255,45,147,0.2)]">
                 <div className="flex items-start gap-2">
                   <span className={`${UI_TEXT.labelText} text-magenta-neon`}>!</span>
                   <div className="min-w-0">
@@ -147,7 +149,7 @@ export default function MyLandPage() {
               </div>
             ) : null}
             {!isLoading && !loadError && (eligibleCount > 0 || claimedCount > 0) ? (
-              <div className="absolute top-12 right-0 z-20 rounded border-2 border-border-neon bg-bg-2 px-3 py-2">
+              <div className="hidden sm:block absolute top-12 right-0 z-20 max-w-[calc(100%-1rem)] rounded border-2 border-border-neon bg-bg-2 px-3 py-2">
                 <div className={`${UI_TEXT.labelText} text-cyan-neon`}>
                   INVENTORY: {claimedCount} CLAIMED · {eligibleCount} ELIGIBLE
                 </div>
@@ -163,7 +165,7 @@ export default function MyLandPage() {
               </Button>
             ) : null}
             {!isLoading && !loadError && placed.length > 0 ? (
-              <div className={`${UI_TEXT.labelText} absolute top-16 right-4 text-muted-neon`}>
+              <div className={`${UI_TEXT.labelText} hidden sm:block absolute top-16 right-4 text-muted-neon`}>
                 OBJECTS: {placed.length}
               </div>
             ) : null}

@@ -30,6 +30,9 @@ export interface IslandSceneProps {
   objects: LandObject[];
   /** When true, draws tile outlines and enables tile hover/click feedback. */
   showGrid?: boolean;
+  /** Visual scale of the island (tiles, side blocks, buildings, hamsters).
+   *  The sky/background stays full-canvas. Defaults to 1. */
+  scale?: number;
   hoveredIndex?: number | null;
   onHoverObject?: (i: number | null) => void;
   onTileClick?: (gx: number, gy: number) => void;
@@ -56,9 +59,10 @@ export function IslandScene(props: IslandSceneProps) {
 function IslandContent({
   width,
   height,
-  gridSize = 10,
+  gridSize = 5,
   objects,
   showGrid = false,
+  scale = 1,
   hoveredIndex = null,
   onHoverObject,
   onTileClick,
@@ -72,13 +76,17 @@ function IslandContent({
     [objects],
   );
 
+  // Scale the island around (cx, cy) by translating by cx*(1-scale), cy*(1-scale)
+  // so a child drawn at (cx+dx, cy+dy) renders at (cx + scale*dx, cy + scale*dy).
+  const offsetX = cx * (1 - scale);
+  const offsetY = cy * (0.5 - scale);
+
   return (
     <pixiContainer>
       <Sky width={width} height={height} />
-      <pixiContainer>
-      <Hamsters gridSize={gridSize} project={project} />
+      <pixiContainer x={offsetX} y={offsetY} scale={scale}>
+        <Hamsters gridSize={gridSize} project={project} />
         <SideBlocks gridSize={gridSize} project={project} />
-        
         <TileGrid
           gridSize={gridSize}
           project={project}

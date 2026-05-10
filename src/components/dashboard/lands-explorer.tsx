@@ -101,21 +101,23 @@ export function LandsExplorer({
 
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="flex items-center gap-2.5 flex-wrap">
-        {SORTS.map(([k, label]) => (
-          <Badge key={k} variant={sort === k ? "chip-on" : "chip"} asChild>
-            <button
-              type="button"
-              onClick={() => setSort(k)}
-              disabled={isPending}
-            >
-              {label}
-            </button>
-          </Badge>
-        ))}
-        <div className="flex-1" />
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2 flex-wrap">
+          {SORTS.map(([k, label]) => (
+            <Badge key={k} variant={sort === k ? "chip-on" : "chip"} asChild>
+              <button
+                type="button"
+                onClick={() => setSort(k)}
+                disabled={isPending}
+              >
+                {label}
+              </button>
+            </Badge>
+          ))}
+        </div>
+        <div className="hidden sm:block flex-1" />
         <Input
-          className="w-56"
+          className="w-full sm:w-56"
           placeholder="SEARCH WALLET..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -137,14 +139,7 @@ export function LandsExplorer({
       ) : null}
 
       {bento.length > 0 ? (
-        <div
-          className="grid gap-3.5"
-          style={{
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gridTemplateRows: "repeat(3, minmax(180px, 1fr))",
-            gridTemplateAreas: '"a a b c" "a a b d" "e f g g"',
-          }}
-        >
+        <div className="bento-grid">
           {bento.map((land, i) => (
             <div
               key={`${land.address}-${i}`}
@@ -157,7 +152,7 @@ export function LandsExplorer({
       ) : null}
 
       {more.length > 0 ? (
-        <div className="grid gap-3.5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid gap-3.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
           {more.map((land, i) => (
             <LandCard key={`${land.address}-more-${i}`} land={land} size="sm" />
           ))}

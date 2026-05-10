@@ -21,7 +21,7 @@ interface MintSingleModalProps {
 export function MintSingleModal({ item, onClose, onConfirm }: MintSingleModalProps) {
   return (
     <Dialog open={!!item} onOpenChange={(o) => (!o ? onClose() : undefined)}>
-      <DialogContent accent="magenta" className="max-w-[440px]">
+      <DialogContent accent="magenta" className="max-w-[calc(100vw-24px)] sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle>MINT NFT</DialogTitle>
         </DialogHeader>
