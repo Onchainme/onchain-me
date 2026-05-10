@@ -75,7 +75,7 @@ export default function EditPage() {
 
   return (
     <PageShell>
-      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 md:grid-cols-[340px_1fr]`}>
+      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 sm:grid-cols-[300px_1fr] md:grid-cols-[340px_1fr]`}>
         <aside className="flex flex-col gap-3">
           <StatsRail title="Edit" address={shortWallet(address)} recent={false} />
           <Button
@@ -110,12 +110,12 @@ export default function EditPage() {
         <MapFrame
           label="EDIT · TILE GRID"
           action={
-            <Button variant="cyan" onClick={() => setShareOpen(true)}>
-              ↗ Share the Land
+            <Button variant="cyan" size="sm" className="sm:h-9 sm:px-3.5 sm:text-[12px]" onClick={() => setShareOpen(true)}>
+              ↗ Share<span className="hidden sm:inline">&nbsp;the Land</span>
             </Button>
           }
         >
-          <div className="relative h-[760px] flex items-center justify-center">
+          <div className="relative min-h-[360px] sm:h-[760px] flex items-center justify-center pt-8 sm:pt-0">
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
@@ -128,7 +128,7 @@ export default function EditPage() {
               onObjectClick={(o) => removeObject(o.id)}
             />
             {activeItem ? <ActiveCursorCard item={activeItem} /> : null}
-            <div className={`${UI_TEXT.labelText} absolute bottom-4 left-4 text-muted-neon`}>
+            <div className={`${UI_TEXT.labelText} absolute bottom-2 left-2 sm:bottom-4 sm:left-4 text-muted-neon max-w-[calc(100%-1rem)] truncate`}>
               {activeItem
                 ? "CLICK A TILE TO PLACE · CLICK OBJECT TO REMOVE"
                 : "SELECT CLAIMED FROM INVENTORY"}
@@ -160,11 +160,15 @@ export default function EditPage() {
 
 function ActiveCursorCard({ item }: { item: InventoryItem }) {
   return (
-    <Card accent="magenta" padding="sm" className="absolute top-12 right-5 w-56">
+    <Card
+      accent="magenta"
+      padding="sm"
+      className="absolute top-10 right-2 sm:top-12 sm:right-5 w-44 sm:w-56 max-w-[calc(100%-1rem)]"
+    >
       <div className={`${UI_TEXT.labelText} glow-m mb-1`}>ACTIVE CURSOR</div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <GlyphTile glyph={item.glyph} hue={item.hue} size="xs" tone="bold" />
-        <span className="font-pixel-body text-sm">{item.name}</span>
+        <span className="font-pixel-body text-sm truncate">{item.name}</span>
       </div>
       <div className={`${UI_TEXT.labelTextSm} text-muted-neon mt-1`}>
         CLICK EMPTY TILE TO PLACE

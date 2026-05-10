@@ -29,7 +29,7 @@ export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalPr
 
   return (
     <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
-      <DialogContent accent="cyan" className="max-w-[480px]">
+      <DialogContent accent="cyan" className="max-w-[calc(100vw-24px)] sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>MINT ALL · ELIGIBLE</DialogTitle>
         </DialogHeader>
@@ -37,7 +37,7 @@ export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalPr
           {eligible.length} eligible object{eligible.length === 1 ? "" : "s"} will
           be minted in a single batch.
         </DialogDescription>
-        <div className="border-2 border-border-neon p-2 bg-bg-2">
+        <div className="border-2 border-border-neon p-2 bg-bg-2 max-h-[40vh] overflow-y-auto">
           {eligible.length === 0 ? (
             <div className="py-4 font-silk text-center text-muted-neon text-[12px]">
               NOTHING TO MINT

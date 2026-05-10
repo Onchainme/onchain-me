@@ -110,18 +110,20 @@ export function StatsRail({
           <WalletAvatar size="lg" glow />
           <div className="min-w-0">
             <div className={`${UI_TEXT.labelText} text-muted-neon`}>{kicker}</div>
-            <h2 className="glow-c text-xl leading-none mt-0.5">{title}</h2>
-            <div className={`${UI_TEXT.labelText} glow-m mt-1`}>{address}</div>
+            <h2 className="glow-c text-lg sm:text-xl leading-none mt-0.5">{title}</h2>
+            <div className={`${UI_TEXT.labelText} glow-m mt-1 break-all`}>{address}</div>
           </div>
         </div>
       </Card>
-      <StatChip label="PROTOCOLS" value={stats?.protocols ?? 0} color="cyan" />
-      <StatChip
-        label="TRANSACTIONS"
-        value={(stats?.transactions ?? 0).toLocaleString()}
-        color="magenta"
-      />
-      <StatChip label="POINTS" value={stats?.score ?? 0} color="yellow" />
+      <div className="flex flex-col gap-2 sm:gap-3">
+        <StatChip label="PROTOCOLS" value={stats?.protocols ?? 0} color="cyan" />
+        <StatChip
+          label="TRANSACTIONS"
+          value={(stats?.transactions ?? 0).toLocaleString()}
+          color="magenta"
+        />
+        <StatChip label="POINTS" value={stats?.score ?? 0} color="yellow" />
+      </div>
       {recent && (stats?.recentClaims.length ?? 0) > 0 ? (
         <Card padding="default">
           <div className={`${UI_TEXT.labelText} text-muted-neon mb-1.5`}>

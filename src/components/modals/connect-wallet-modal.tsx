@@ -54,7 +54,7 @@ export function ConnectWalletModal() {
       open={isConnectOpen}
       onOpenChange={(o) => (!o ? closeConnectModal() : undefined)}
     >
-      <DialogContent accent="violet" className="max-w-[420px]">
+      <DialogContent accent="violet" className="max-w-[calc(100vw-24px)] sm:max-w-[420px]">
         <DialogHeader>
           <DialogTitle>CONNECT WALLET</DialogTitle>
         </DialogHeader>

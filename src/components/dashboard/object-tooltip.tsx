@@ -3,18 +3,23 @@ import type { LandObject } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { GlyphTile } from "@/components/ui/glyph-tile";
+import { cn } from "@/lib/utils";
 
 interface ObjectTooltipProps {
   obj: LandObject;
   style?: CSSProperties;
+  className?: string;
 }
 
-export function ObjectTooltip({ obj, style }: ObjectTooltipProps) {
+export function ObjectTooltip({ obj, style, className }: ObjectTooltipProps) {
   return (
     <Card
       accent="cyan"
       padding="default"
-      className="absolute z-30 w-60 pointer-events-none"
+      className={cn(
+        "absolute z-30 w-52 sm:w-60 max-w-[calc(100%-1rem)] pointer-events-none",
+        className,
+      )}
       style={style}
     >
       <div className="flex items-center gap-2.5">

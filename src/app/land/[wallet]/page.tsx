@@ -104,7 +104,7 @@ export default function PublicLandPage() {
   return (
     <PageShell>
       <div className={`${UI_LAYOUT.pageContainer} pt-3 flex items-center gap-2 flex-wrap`}>
-        <span className={`${UI_TEXT.labelText} text-muted-neon`}>
+        <span className={`${UI_TEXT.labelText} text-muted-neon break-all`}>
           <span className="text-cyan-neon">onchain.me</span>/land/
           <span className="glow-m">{owner}</span>
         </span>
@@ -115,11 +115,28 @@ export default function PublicLandPage() {
         ) : null}
       </div>
 
-      <div className={`${UI_LAYOUT.pageContainer} grid gap-5 p-6 grid-cols-1 lg:grid-cols-[1fr_380px]`}>
+      <div className={`${UI_LAYOUT.pageContainer} grid gap-3 p-3 sm:gap-5 sm:p-6 grid-cols-1 md:grid-cols-[1fr_360px] lg:grid-cols-[1fr_380px]`}>
+        <div className="flex sm:hidden flex-col gap-2 col-span-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <WalletAvatar size="md" />
+            <div className="min-w-0 flex-1">
+              <div className="font-px glow-c text-[12px]">{shortAddress(owner)}</div>
+              <div className="font-silk text-[8px] text-muted-neon truncate">{owner} · OWNER</div>
+            </div>
+            <Button variant="cyan" size="sm" onClick={() => setShareOpen(true)}>
+              ↗ Share
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatChip label="OBJ" value={objects.length} color="cyan" size="sm" />
+            <StatChip label="PTS" value={score.toLocaleString()} color="yellow" size="sm" />
+            {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" /> : null}
+          </div>
+        </div>
         <MapFrame
           label="PUBLIC ISLAND"
           action={
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <StatChip label="OBJ" value={objects.length} color="cyan" size="sm" />
               <StatChip label="PTS" value={score.toLocaleString()} color="yellow" size="sm" />
               {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" /> : null}
@@ -129,21 +146,21 @@ export default function PublicLandPage() {
             </div>
           }
         >
-          <div className="absolute left-4 top-12 flex items-center gap-4 z-[4]">
+          <div className="hidden sm:flex absolute left-4 top-12 items-center gap-4 z-[4]">
             <div className="flex items-center gap-2.5">
               <WalletAvatar size="md" />
-              <div>
+              <div className="min-w-0">
                 <div className="font-px glow-c text-[12px] 2xl:text-[16px]">
                   {shortAddress(owner)}
                 </div>
-                <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon">
+                <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon truncate max-w-[260px]">
                   {owner} · OWNER
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="relative h-[700px] flex items-center justify-center">
+          <div className="relative min-h-[300px] sm:h-[700px] flex items-center justify-center pt-8 sm:pt-0">
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
@@ -152,7 +169,10 @@ export default function PublicLandPage() {
               onHoverObject={setHovered}
             />
             {hoveredObj ? (
-              <ObjectTooltip obj={hoveredObj} style={{ left: "52%", top: "18%" }} />
+              <ObjectTooltip
+                obj={hoveredObj}
+                className="left-2 top-2 sm:left-auto sm:top-12 sm:right-4"
+              />
             ) : null}
             {notFound ? (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -194,7 +214,7 @@ function PlacedObjectsList({
   loading: boolean;
 }) {
   return (
-    <Card padding="lg" className="flex-col min-h-[700px]">
+    <Card padding="lg" className="flex-col sm:min-h-[700px]">
       <div className="flex items-center mb-2.5">
         <span className={`${UI_TEXT.labelText} glow-c`}>PLACED OBJECTS</span>
         <Badge variant="tag-cyan" className="ml-2">

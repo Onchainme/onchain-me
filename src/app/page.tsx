@@ -29,7 +29,7 @@ export default async function HomePage() {
 
   return (
     <PageShell>
-      <div className="max-w-[1280px] mx-auto px-12 pt-6 pb-10 flex flex-col gap-3.5">
+      <div className="max-w-[1280px] mx-auto px-3 pt-4 pb-8 sm:px-12 sm:pt-6 sm:pb-10 flex flex-col gap-3.5">
         <Hero />
         <LiveTicker initialItems={feed.items} />
         <LandsExplorer

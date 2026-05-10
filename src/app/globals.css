@@ -6,6 +6,7 @@
 
 /* ───────── Design tokens ───────── */
 @theme {
+  --breakpoint-xs: 480px;
   --breakpoint-sm: 1024px;
   --breakpoint-md: 1440px;
   --breakpoint-lg: 1920px;
@@ -127,7 +128,17 @@
   }
   body {
     font-family: var(--font-body);
-    font-size: 20px;
+    font-size: 16px;
+  }
+  @media (min-width: 1024px) {
+    body {
+      font-size: 20px;
+    }
+  }
+  /* Prevent accidental horizontal scroll on mobile from any single overflowing
+     descendant — page content is contained but Pixi/SVG can occasionally bleed. */
+  html, body {
+    overflow-x: hidden;
   }
   h1,
   h2,
@@ -289,6 +300,32 @@
 @keyframes pxblink {
   50% {
     opacity: 0.5;
+  }
+}
+
+/* Bento grid for the lands explorer.
+   Mobile: 2 columns, simple stack.
+   Desktop (sm = 1024px+): the curated bento layout with a featured XL card. */
+.bento-grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(120px, auto));
+  grid-template-areas:
+    "a a"
+    "a a"
+    "b c"
+    "d e"
+    "f g";
+}
+@media (min-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, minmax(180px, 1fr));
+    grid-template-areas:
+      "a a b c"
+      "a a b d"
+      "e f g g";
   }
 }
 
