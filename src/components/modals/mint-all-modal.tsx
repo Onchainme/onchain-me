@@ -13,8 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import type { InventoryItem } from "@/lib/types";
-
-const GAS_PER_MINT = 0.00042;
+import { API_BASE_URL } from "@/lib/api";
+import { badgeAnimationUrl, isBadgeId } from "@/lib/badge-catalog";
 
 interface MintAllModalProps {
   items: InventoryItem[];
@@ -25,7 +25,6 @@ interface MintAllModalProps {
 
 export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalProps) {
   const eligible = items.filter((i) => i.state === "eligible");
-  const totalGas = (eligible.length * GAS_PER_MINT).toFixed(5);
 
   return (
     <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
@@ -43,34 +42,50 @@ export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalPr
               NOTHING TO MINT
             </div>
           ) : (
-            eligible.map((it, i) => (
-              <div
-                key={it.id}
-                className="flex items-center gap-2.5 px-1.5 py-2"
-                style={{
-                  borderBottom:
-                    i < eligible.length - 1
-                      ? "1px dashed var(--color-border-neon)"
-                      : undefined,
-                }}
-              >
-                <GlyphTile glyph={it.glyph} hue={it.hue} size="md" />
-                <div className="flex-1">
-                  <div className="font-px text-[8px] text-ink">{it.name}</div>
-                  <div className="font-silk text-[8px] text-muted-neon mt-0.5">
-                    {it.protocol}
+            eligible.map((it, i) => {
+              const animUrl = isBadgeId(it.badgeId)
+                ? badgeAnimationUrl(API_BASE_URL, it.badgeId)
+                : null;
+              return (
+                <div
+                  key={it.id}
+                  className="flex items-center gap-2.5 px-1.5 py-2"
+                  style={{
+                    borderBottom:
+                      i < eligible.length - 1
+                        ? "1px dashed var(--color-border-neon)"
+                        : undefined,
+                  }}
+                >
+                  {animUrl ? (
+                    <img
+                      src={animUrl}
+                      alt={it.name}
+                      className="block w-8 h-8 object-contain image-render-pixel"
+                      draggable={false}
+                    />
+                  ) : (
+                    <GlyphTile glyph={it.glyph} hue={it.hue} size="md" />
+                  )}
+                  <div className="flex-1">
+                    <div className="font-px text-[8px] text-ink">{it.name}</div>
+                    <div className="font-silk text-[8px] text-muted-neon mt-0.5">
+                      {it.protocol}
+                    </div>
                   </div>
+                  <Badge variant="tag-cyan">ELIGIBLE</Badge>
                 </div>
-                <Badge variant="tag-cyan">ELIGIBLE</Badge>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         <Separator variant="dashed" />
+        {/* Cost is paid by the mint authority — recipient pays nothing.
+            See packages/shared/src/mint/prepare.ts (umi.identity signs/pays). */}
         <div className="flex items-center">
-          <span className="font-silk text-[12px] text-muted-neon">TOTAL GAS</span>
+          <span className="font-silk text-[12px] text-muted-neon">YOUR COST</span>
           <div className="flex-1" />
-          <span className="font-px glow-y text-xs">≈ {totalGas} SOL</span>
+          <span className="font-px glow-y text-xs">FREE · sponsored</span>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>

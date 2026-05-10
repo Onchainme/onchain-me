@@ -1,10 +1,12 @@
 "use client";
 
 import { Application, extend } from "@pixi/react";
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Sprite, Texture } from "pixi.js";
 import { useCallback, useMemo, useState } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { LandObject } from "@/lib/types";
+import { API_BASE_URL } from "@/lib/api";
+import { badgePreviewUrl, isBadgeId } from "@/lib/badge-catalog";
 import {
   BLOCK_H,
   SIDE_LAYERS,
@@ -20,7 +22,9 @@ import {
 import { getBuildingShape, type Pixel } from "./building-shapes";
 import { Hamsters } from "./Hamsters";
 
-extend({ Container, Graphics });
+extend({ Container, Graphics, Sprite });
+
+const BADGE_SPRITE_SIZE = 40;
 
 export interface IslandSceneProps {
   width: number;
@@ -456,6 +460,116 @@ function Objects({
 }
 
 function BuildingSprite({
+  obj,
+  index,
+  x,
+  y,
+  isHover,
+  onHoverObject,
+  onObjectClick,
+}: {
+  obj: LandObject;
+  index: number;
+  x: number;
+  y: number;
+  isHover: boolean;
+  onHoverObject?: (i: number | null) => void;
+  onObjectClick?: (obj: LandObject) => void;
+}) {
+  // Prefer the badge PNG preview when this object maps to a known badge id.
+  // Pixi can't natively animate GIFs, so the static first-frame preview goes
+  // on the tile; the inventory sidebar still shows the GIF animation.
+  const previewUrl =
+    obj.badgeId && isBadgeId(obj.badgeId) ? badgePreviewUrl(API_BASE_URL, obj.badgeId) : null;
+
+  if (previewUrl) {
+    return (
+      <BadgeSprite
+        url={previewUrl}
+        obj={obj}
+        index={index}
+        x={x}
+        y={y}
+        isHover={isHover}
+        onHoverObject={onHoverObject}
+        onObjectClick={onObjectClick}
+      />
+    );
+  }
+
+  return (
+    <BuildingShapeSprite
+      obj={obj}
+      index={index}
+      x={x}
+      y={y}
+      isHover={isHover}
+      onHoverObject={onHoverObject}
+      onObjectClick={onObjectClick}
+    />
+  );
+}
+
+function BadgeSprite({
+  url,
+  obj,
+  index,
+  x,
+  y,
+  isHover,
+  onHoverObject,
+  onObjectClick,
+}: {
+  url: string;
+  obj: LandObject;
+  index: number;
+  x: number;
+  y: number;
+  isHover: boolean;
+  onHoverObject?: (i: number | null) => void;
+  onObjectClick?: (obj: LandObject) => void;
+}) {
+  // Texture.from is cached by URL — repeated mounts of the same badge reuse
+  // the same GPU texture.
+  const texture = useMemo(() => Texture.from(url), [url]);
+  const interactive = !!onHoverObject || !!onObjectClick;
+
+  const drawShadow = useCallback(
+    (g: Graphics) => {
+      g.clear();
+      g.ellipse(x, y + 4, 12, 3).fill({ color: 0x000000, alpha: 0.22 });
+      if (isHover) {
+        g.ellipse(x, y + 4, 16, 5).stroke({
+          color: 0x22d3ee,
+          width: 1,
+          alpha: 0.9,
+        });
+      }
+    },
+    [x, y, isHover],
+  );
+
+  return (
+    <pixiContainer>
+      <pixiGraphics draw={drawShadow} />
+      <pixiSprite
+        texture={texture}
+        x={x}
+        y={y + 2}
+        anchor={{ x: 0.5, y: 1 }}
+        width={BADGE_SPRITE_SIZE}
+        height={BADGE_SPRITE_SIZE}
+        eventMode={interactive ? "static" : "passive"}
+        cursor={onObjectClick ? "pointer" : "default"}
+        onPointerEnter={() => onHoverObject?.(index)}
+        onPointerLeave={() => onHoverObject?.(null)}
+        onPointerTap={() => onObjectClick?.(obj)}
+      />
+    </pixiContainer>
+  );
+}
+
+function BuildingShapeSprite({
   obj,
   index,
   x,

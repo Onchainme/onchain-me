@@ -14,6 +14,7 @@ import {
   importCnfts,
   putPlacements,
   requestMintSingle,
+  runScan,
   seedAllEligibilities,
   type InventoryResponse,
   type LandPlacementApi,
@@ -36,6 +37,8 @@ interface UseInventoryResult {
   loading: boolean;
   error: string | null;
   busyBadgeId: string | null;
+  /** ISO timestamp of the most recent wallet scan, null if never scanned. */
+  lastScanAt: string | null;
 }
 
 const PLACED_PREFIX = "placed:";
@@ -61,6 +64,7 @@ function buildInventoryFromApi(
   for (const claim of api.claimed) {
     if (!isBadgeId(claim.badgeId)) continue;
     const def = BADGE_CATALOG[claim.badgeId];
+    const assetId = claim.assetId && claim.assetId !== "unknown" ? claim.assetId : null;
     out.push({
       id: `inv-${claim.badgeId}`,
       badgeId: claim.badgeId,
@@ -71,6 +75,7 @@ function buildInventoryFromApi(
       hue: def.hue,
       type: def.type,
       state: placedBadgeIds.has(claim.badgeId) ? "placed" : "claimed",
+      assetId,
     });
   }
   for (const elig of api.eligible) {
@@ -131,6 +136,7 @@ export function useInventory(): UseInventoryResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyBadgeId, setBusyBadgeId] = useState<string | null>(null);
+  const [lastScanAt, setLastScanAt] = useState<string | null>(null);
 
   const connectionRef = useRef<Connection | null>(null);
   if (!connectionRef.current) {
@@ -144,6 +150,7 @@ export function useInventory(): UseInventoryResult {
     if (!walletAddress) {
       setInventory([]);
       setPlaced([]);
+      setLastScanAt(null);
       return;
     }
     setLoading(true);
@@ -181,6 +188,7 @@ export function useInventory(): UseInventoryResult {
       const placedBadgeIds = new Set(placements.map((p) => p.badgeId));
       setInventory(buildInventoryFromApi(invApi, placedBadgeIds));
       setPlaced(buildPlacedFromApi(placements));
+      setLastScanAt(invApi.lastScanAt ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to load inventory");
     } finally {
@@ -376,6 +384,12 @@ export function useInventory(): UseInventoryResult {
     await refresh();
   }, [inventory, mintBadge, refresh]);
 
+  /**
+   * Explicit dev-seed: grants every badgeId as eligible for the connected
+   * wallet. Only succeeds when the backend has ALLOW_DEV_ROUTES=true (or
+   * NODE_ENV=development). Used for UI testing without real on-chain
+   * activity / Helius key.
+   */
   const seedAll = useCallback(async () => {
     if (!walletAddress) return;
     try {
@@ -386,22 +400,28 @@ export function useInventory(): UseInventoryResult {
     }
   }, [walletAddress, refresh]);
 
-  // Dev convenience: when the user clicks "Update inventory" with an empty list,
-  // seed every badge as eligible so the mint flow has something to act on. Skips
-  // the seed if the user already has any badges (real or seeded).
+  /**
+   * Real wallet scan: enqueues a worker job that pulls swap txs via Helius,
+   * sums per-protocol USD volume incrementally, queries Orca/Meteora/Seeker
+   * positions on-chain, and rewrites BadgeEligibility from the resulting
+   * UserState. Eligibilities reflect actual on-chain reality — empty wallets
+   * end up with zero eligible badges.
+   */
   const smartRescan = useCallback(async () => {
     if (!walletAddress) return;
-    if (inventory.length === 0) {
-      try {
-        await seedAllEligibilities();
-      } catch (err) {
-        // Non-fatal: surface error but still refresh so a real backend with
-        // disabled dev routes still updates the visible state.
-        setError(err instanceof Error ? err.message : "seed failed");
+    setLoading(true);
+    setError(null);
+    try {
+      const status = await runScan(walletAddress, "incremental");
+      if (status.status === "failed") {
+        setError(status.error ?? "scan failed");
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "scan failed");
+    } finally {
+      await refresh();
     }
-    await refresh();
-  }, [walletAddress, inventory.length, refresh]);
+  }, [walletAddress, refresh]);
 
   const eligibleCount = useMemo(
     () => inventory.filter((i) => i.state === "eligible").length,
@@ -428,5 +448,6 @@ export function useInventory(): UseInventoryResult {
     loading,
     error,
     busyBadgeId,
+    lastScanAt,
   };
 }

@@ -32,6 +32,8 @@ export interface InventoryItem {
   state: "placed" | "claimed" | "eligible";
   isNew?: boolean;
   name: string;
+  /** cNFT asset id for claimed/placed items. Empty for eligible-only entries. */
+  assetId?: string | null;
 }
 
 export interface LandSummary {

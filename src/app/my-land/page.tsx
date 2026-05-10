@@ -20,6 +20,7 @@ import {
 } from "@/lib/api";
 import type { BuildingType, LandObject } from "@/lib/types";
 import { shortWallet } from "@/lib/utils";
+import { BADGE_CATALOG, isBadgeId } from "@/lib/badge-catalog";
 
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
@@ -186,10 +187,29 @@ function placementToLandObject(
   placement: { badgeId: string; x: number; y: number },
   index: number,
 ): LandObject {
+  // Prefer the shared catalog (mirrors backend registry). Falls back to a
+  // hash-derived guess for any unknown badge id (legacy or future).
+  if (isBadgeId(placement.badgeId)) {
+    const def = BADGE_CATALOG[placement.badgeId];
+    return {
+      id: `api-${placement.badgeId}-${index}`,
+      badgeId: placement.badgeId,
+      gx: clampGrid(placement.x),
+      gy: clampGrid(placement.y),
+      hue: def.hue,
+      glyph: def.glyph,
+      type: def.type,
+      name: def.name,
+      protocol: def.label,
+      tile: tileLabelFromCoords(placement.x, placement.y),
+      mintedAt: "API",
+    };
+  }
   const parsed = parseBadgeId(placement.badgeId);
   const hue = hueFromString(placement.badgeId);
   return {
     id: `api-${placement.badgeId}-${index}`,
+    badgeId: placement.badgeId,
     gx: clampGrid(placement.x),
     gy: clampGrid(placement.y),
     hue,

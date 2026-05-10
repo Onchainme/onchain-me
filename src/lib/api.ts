@@ -142,6 +142,10 @@ export interface InventoryEligibleApi {
 export interface InventoryResponse {
   claimed: InventoryClaimedApi[];
   eligible: InventoryEligibleApi[];
+  /** ISO timestamp of the wallet's most recent scan, null if never scanned. */
+  lastScanAt?: string | null;
+  /** ISO timestamp of the most recent on-chain position snapshot. */
+  positionsTakenAt?: string | null;
 }
 
 export async function fetchInventory(
@@ -312,6 +316,69 @@ export async function seedAllEligibilities(): Promise<{ badgeIds: string[]; crea
     throw new ApiError(`seed-eligibilities-all failed: ${res.status}`, res.status);
   }
   return (await res.json()) as { badgeIds: string[]; createdCount: number };
+}
+
+// ---------------------------------------------------------------------------
+// Wallet scan — Helius txs for swap volume + on-chain position queries for
+// Orca/Meteora/Seeker, evaluated by the worker into BadgeEligibility rows.
+// ---------------------------------------------------------------------------
+
+export type ScanMode = "full" | "incremental";
+
+export interface ScanJobStatus {
+  status: "queued" | "running" | "done" | "failed";
+  progress: { phase?: string; processed?: number; total?: number } | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+}
+
+export async function triggerScan(
+  wallet: string,
+  mode: ScanMode = "incremental",
+): Promise<{ jobId: string }> {
+  const url = `${API_BASE_URL}/api/v1/scan/${wallet}?mode=${mode}`;
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`scan trigger failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as { jobId: string };
+}
+
+export async function fetchScanJob(jobId: string): Promise<ScanJobStatus> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/scan/job/${jobId}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new ApiError(`scan job lookup failed: ${res.status}`, res.status);
+  }
+  return (await res.json()) as ScanJobStatus;
+}
+
+/** Triggers a scan and polls until done/failed (or `timeoutMs` reached). */
+export async function runScan(
+  wallet: string,
+  mode: ScanMode = "incremental",
+  timeoutMs = 120_000,
+): Promise<ScanJobStatus> {
+  const { jobId } = await triggerScan(wallet, mode);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const status = await fetchScanJob(jobId);
+    if (status.status === "done" || status.status === "failed") return status;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  throw new ApiError(`scan job ${jobId} timed out after ${timeoutMs}ms`, 504);
 }
 
 // ---------------------------------------------------------------------------

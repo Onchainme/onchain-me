@@ -8,6 +8,9 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import type { InventoryItem } from "@/lib/types";
+import { API_BASE_URL } from "@/lib/api";
+import { badgeAnimationUrl, isBadgeId } from "@/lib/badge-catalog";
+import { explorerAddressUrl } from "@/lib/solana-explorer";
 import { UI_TEXT } from "@/lib/ui-styles";
 
 type Filter = "all" | "claimed" | "eligible";
@@ -112,6 +115,9 @@ function InventorySlot({
 }) {
   const locked = item.state === "eligible";
   const placed = item.state === "placed";
+  // Prefer the animated GIF served by the api for known badge ids;
+  // fall back to the legacy GlyphTile when a badge isn't in the catalog.
+  const animUrl = isBadgeId(item.badgeId) ? badgeAnimationUrl(API_BASE_URL, item.badgeId) : null;
   return (
     <div className="relative">
       <button
@@ -126,7 +132,19 @@ function InventorySlot({
           placed && "opacity-40 cursor-default",
         )}
       >
-        <GlyphTile glyph={item.glyph} hue={item.hue} size="sm" dim={locked} />
+        {animUrl ? (
+          <img
+            src={animUrl}
+            alt={item.name}
+            className={cn(
+              "block w-full h-full object-contain image-render-pixel",
+              locked && "opacity-50",
+            )}
+            draggable={false}
+          />
+        ) : (
+          <GlyphTile glyph={item.glyph} hue={item.hue} size="sm" dim={locked} />
+        )}
         {locked ? (
           <span className="lock">
             <Lock className="w-2.5 h-2.5" />
@@ -136,6 +154,21 @@ function InventorySlot({
       <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon text-center mt-1">
         {item.label}
       </div>
+      {/* For claimed (or placed) badges with a known cNFT asset id, expose a
+          tiny "↗" link to the Solana Explorer. Sits at the top-right of the
+          slot and stops propagation so the click doesn't toggle selection. */}
+      {(item.state === "claimed" || item.state === "placed") && item.assetId ? (
+        <a
+          href={explorerAddressUrl(item.assetId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="absolute -top-1 -right-1 w-4 h-4 grid place-items-center bg-bg-2 border border-border-neon text-[8px] text-cyan-neon hover:text-magenta-neon hover:border-magenta-neon"
+          title={`View ${item.name} on Solana Explorer`}
+        >
+          ↗
+        </a>
+      ) : null}
     </div>
   );
 }

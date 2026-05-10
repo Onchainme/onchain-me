@@ -1,38 +1,172 @@
 import type { BuildingType, InventoryItem } from "./types";
 
+/**
+ * 13 protocol-tiered badges. Mirrors `packages/shared/src/badges/registry.ts`
+ * on the backend; keep ids and tier values in sync.
+ *
+ *   • Jupiter / Pump.fun: cumulative USD swap volume (bronze $1k, silver $10k,
+ *     original $100k)
+ *   • Orca / Meteora: current LP position USD (same thresholds)
+ *   • Seeker: holds the Seeker Genesis NFT (single tier)
+ */
+
 export type BadgeId =
-  | "first_swap"
-  | "jupiter_explorer"
-  | "jupiter_power_user"
-  | "swap_centurion"
-  | "first_nft"
-  | "nft_collector"
-  | "nft_flipper"
-  | "multi_protocol"
-  | "early_adopter"
-  | "active_trader";
+  | "jupiter_volume_bronze"
+  | "jupiter_volume_silver"
+  | "jupiter_volume_original"
+  | "pumpfun_volume_bronze"
+  | "pumpfun_volume_silver"
+  | "pumpfun_volume_original"
+  | "orca_position_bronze"
+  | "orca_position_silver"
+  | "orca_position_original"
+  | "meteora_position_bronze"
+  | "meteora_position_silver"
+  | "meteora_position_original"
+  | "seeker_genesis";
+
+export type BadgeProtocol = "jupiter" | "pumpfun" | "orca" | "meteora" | "seeker";
+export type BadgeTier = "bronze" | "silver" | "original" | "single";
 
 export interface BadgeCatalogEntry {
   badgeId: BadgeId;
-  glyph: string;
+  protocol: BadgeProtocol;
+  tier: BadgeTier;
+  /** Short label used in the inventory grid (e.g. "Jupiter"). */
   label: string;
-  protocol: string;
+  /** Tier-aware full display name (e.g. "Jupiter $10k"). */
   name: string;
+  /** Single-glyph shorthand used for the legacy GlyphTile fallback. */
+  glyph: string;
+  /** OKLCH hue used by the legacy GlyphTile fallback. */
   hue: number;
+  /** Old isometric island building type used as a placement fallback. */
   type: BuildingType;
+  /** USD threshold (null for single-tier badges like Seeker). */
+  thresholdUsd: number | null;
+  /** Static first-frame preview filename (served by api at /badges/<file>). */
+  previewFile: string;
+  /** Animated filename (GIF/APNG) served at /badges/<file>. */
+  animationFile: string;
+}
+
+const TIER_HUE: Record<BadgeTier, number> = {
+  bronze: 28,
+  silver: 200,
+  original: 50,
+  single: 280,
+};
+
+const PROTOCOL_BUILDING: Record<BadgeProtocol, BuildingType> = {
+  jupiter: "tower",
+  pumpfun: "mushroom",
+  orca: "dome",
+  meteora: "shrine",
+  seeker: "lighthouse",
+};
+
+const PROTOCOL_GLYPH: Record<BadgeProtocol, string> = {
+  jupiter: "J",
+  pumpfun: "P",
+  orca: "O",
+  meteora: "M",
+  seeker: "S",
+};
+
+const PROTOCOL_LABEL: Record<BadgeProtocol, string> = {
+  jupiter: "Jupiter",
+  pumpfun: "Pump.fun",
+  orca: "Orca",
+  meteora: "Meteora",
+  seeker: "Seeker",
+};
+
+function entry(
+  badgeId: BadgeId,
+  protocol: BadgeProtocol,
+  tier: BadgeTier,
+  thresholdUsd: number | null,
+  files: { previewFile: string; animationFile: string },
+  displayName?: string,
+): BadgeCatalogEntry {
+  const proto = PROTOCOL_LABEL[protocol];
+  const name =
+    displayName ??
+    (thresholdUsd
+      ? `${proto} $${thresholdUsd >= 1000 ? `${thresholdUsd / 1000}k` : thresholdUsd}`
+      : proto);
+  return {
+    badgeId,
+    protocol,
+    tier,
+    label: proto,
+    name,
+    glyph: PROTOCOL_GLYPH[protocol],
+    hue: TIER_HUE[tier],
+    type: PROTOCOL_BUILDING[protocol],
+    thresholdUsd,
+    previewFile: files.previewFile,
+    animationFile: files.animationFile,
+  };
 }
 
 export const BADGE_CATALOG: Record<BadgeId, BadgeCatalogEntry> = {
-  first_swap: { badgeId: "first_swap", glyph: "J", label: "Jupiter", protocol: "Jupiter", name: "First Swap", hue: 30, type: "tower" },
-  jupiter_explorer: { badgeId: "jupiter_explorer", glyph: "J", label: "Jupiter", protocol: "Jupiter", name: "Jupiter Explorer", hue: 35, type: "tower" },
-  jupiter_power_user: { badgeId: "jupiter_power_user", glyph: "J", label: "Jupiter", protocol: "Jupiter", name: "Jupiter Power User", hue: 25, type: "tower" },
-  swap_centurion: { badgeId: "swap_centurion", glyph: "J", label: "Jupiter", protocol: "Jupiter", name: "Swap Centurion", hue: 50, type: "shrine" },
-  first_nft: { badgeId: "first_nft", glyph: "M", label: "Magic Eden", protocol: "Magic Eden", name: "First NFT", hue: 320, type: "mushroom" },
-  nft_collector: { badgeId: "nft_collector", glyph: "M", label: "Magic Eden", protocol: "Magic Eden", name: "NFT Collector", hue: 300, type: "dome" },
-  nft_flipper: { badgeId: "nft_flipper", glyph: "M", label: "Magic Eden", protocol: "Magic Eden", name: "NFT Flipper", hue: 280, type: "mushroom" },
-  multi_protocol: { badgeId: "multi_protocol", glyph: "X", label: "Cross", protocol: "Multi-Protocol", name: "Multi-Protocol", hue: 200, type: "crystal" },
-  early_adopter: { badgeId: "early_adopter", glyph: "O", label: "Solana", protocol: "Solana", name: "Early Adopter", hue: 180, type: "lighthouse" },
-  active_trader: { badgeId: "active_trader", glyph: "T", label: "Trader", protocol: "On-chain", name: "Active Trader", hue: 140, type: "tree" },
+  jupiter_volume_bronze: entry("jupiter_volume_bronze", "jupiter", "bronze", 1_000, {
+    previewFile: "bronze-cat.png",
+    animationFile: "bronze-cat.gif",
+  }),
+  jupiter_volume_silver: entry("jupiter_volume_silver", "jupiter", "silver", 10_000, {
+    previewFile: "silver-cat.png",
+    animationFile: "silver-cat.gif",
+  }),
+  jupiter_volume_original: entry("jupiter_volume_original", "jupiter", "original", 100_000, {
+    previewFile: "cat.png",
+    animationFile: "cat.gif",
+  }),
+  pumpfun_volume_bronze: entry("pumpfun_volume_bronze", "pumpfun", "bronze", 1_000, {
+    previewFile: "bronze-pill.png",
+    animationFile: "bronze-pill.gif",
+  }),
+  pumpfun_volume_silver: entry("pumpfun_volume_silver", "pumpfun", "silver", 10_000, {
+    previewFile: "silver-pill.png",
+    animationFile: "silver-pill.gif",
+  }),
+  pumpfun_volume_original: entry("pumpfun_volume_original", "pumpfun", "original", 100_000, {
+    previewFile: "pill.png",
+    animationFile: "pill.gif",
+  }),
+  orca_position_bronze: entry("orca_position_bronze", "orca", "bronze", 1_000, {
+    previewFile: "bronze-orca.png",
+    animationFile: "bronze-orca.gif",
+  }),
+  orca_position_silver: entry("orca_position_silver", "orca", "silver", 10_000, {
+    previewFile: "silver-orca.png",
+    animationFile: "silver-orca.gif",
+  }),
+  orca_position_original: entry("orca_position_original", "orca", "original", 100_000, {
+    previewFile: "orca.png",
+    animationFile: "orca.gif",
+  }),
+  meteora_position_bronze: entry("meteora_position_bronze", "meteora", "bronze", 1_000, {
+    previewFile: "bronze-meteor.png",
+    animationFile: "bronze-meteor.gif",
+  }),
+  meteora_position_silver: entry("meteora_position_silver", "meteora", "silver", 10_000, {
+    previewFile: "silver-meteor.png",
+    animationFile: "silver-meteor.gif",
+  }),
+  meteora_position_original: entry("meteora_position_original", "meteora", "original", 100_000, {
+    previewFile: "meteor.png",
+    animationFile: "meteor.gif",
+  }),
+  seeker_genesis: entry(
+    "seeker_genesis",
+    "seeker",
+    "single",
+    null,
+    { previewFile: "seeker.png", animationFile: "seeker.gif" },
+    "Seeker Genesis",
+  ),
 };
 
 export const BADGE_IDS = Object.keys(BADGE_CATALOG) as BadgeId[];
@@ -53,11 +187,33 @@ export function inventoryItemFromBadge(
     badgeId,
     glyph: def.glyph,
     label: def.label,
-    protocol: def.protocol,
+    protocol: def.label,
     name: def.name,
     hue: def.hue,
     type: def.type,
     state,
     isNew,
   };
+}
+
+/**
+ * Build the full URL for a badge's animated GIF. `API_BASE_URL` is the
+ * NEXT_PUBLIC_API_BASE_URL the frontend was built with.
+ */
+export function badgeAnimationUrl(
+  apiBaseUrl: string,
+  badgeId: BadgeId | string,
+): string | null {
+  if (!isBadgeId(badgeId)) return null;
+  const def = BADGE_CATALOG[badgeId];
+  return `${apiBaseUrl}/badges/${def.animationFile}`;
+}
+
+export function badgePreviewUrl(
+  apiBaseUrl: string,
+  badgeId: BadgeId | string,
+): string | null {
+  if (!isBadgeId(badgeId)) return null;
+  const def = BADGE_CATALOG[badgeId];
+  return `${apiBaseUrl}/badges/${def.previewFile}`;
 }
