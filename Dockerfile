@@ -26,6 +26,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # NEXT_PUBLIC_* vars are baked into the bundle at build time.
 ARG NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+# Controls which Solana cluster the Explorer links point at (Solscan ?cluster=…
+# and explorer.solana.com paths). Use mainnet-beta on prod; defaults to devnet
+# in solana-explorer.ts when this is unset, so dev builds Just Work.
+ARG NEXT_PUBLIC_SOLANA_CLUSTER
+ENV NEXT_PUBLIC_SOLANA_CLUSTER=${NEXT_PUBLIC_SOLANA_CLUSTER}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
