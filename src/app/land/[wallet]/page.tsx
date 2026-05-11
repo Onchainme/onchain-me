@@ -164,6 +164,7 @@ export default function PublicLandPage() {
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
+              scale={1.5}
               objects={objects}
               hoveredIndex={hovered}
               onHoverObject={setHovered}

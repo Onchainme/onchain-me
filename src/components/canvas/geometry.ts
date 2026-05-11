@@ -1,7 +1,7 @@
 export const TILE_W = 38 * 2;
 export const TILE_H = 15 * 2;
 export const BLOCK_H = 14 * 2;
-export const SIDE_LAYERS = 3;
+export const SIDE_LAYERS = 1;
 
 export interface Point {
   x: number;

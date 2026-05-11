@@ -113,7 +113,7 @@ export default function MyLandPage() {
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
-              scale={2}
+              scale={1.8}
               objects={placed}
               hoveredIndex={hovered}
               onHoverObject={setHovered}
