@@ -50,7 +50,6 @@ export default function EditPage() {
     mintItem,
     mintAll,
     rescan,
-    seedAll,
     eligibleCount,
     claimedCount,
     error: mintError,
@@ -101,14 +100,6 @@ export default function EditPage() {
           >
             Last scan: {loading ? "running…" : timeAgo(lastScanAt)}
           </div>
-          {/*
-            Dev-only shortcut: grants every badge as eligible so we can test
-            the mint flow without a real Helius scan. Backend only honours it
-            when ALLOW_DEV_ROUTES=true; otherwise the call silently 404s.
-          */}
-          <Button variant="ghost" onClick={seedAll} disabled={loading}>
-            ⚙ Seed eligibilities (dev)
-          </Button>
           {mintError ? (
             <div className="border border-red-500 bg-red-950/40 p-2 text-[11px] font-mono text-red-200 break-all">
               ⚠ {mintError}
