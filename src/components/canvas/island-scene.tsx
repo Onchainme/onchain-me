@@ -1,8 +1,15 @@
 "use client";
 
-import { Application, extend, useTick } from "@pixi/react";
+import { Application, extend } from "@pixi/react";
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+// Bare side-effect import runs `AnimatedWebPAsset.mjs` which calls
+// `extensions.add(...)` to register the `.webp` Assets loader. Without it the
+// bundler tree-shakes the registration (the package has no `sideEffects`
+// declaration in its package.json) and Assets.load returns a plain Texture
+// — no .clone(), no animation.
+import "@olduvai-jp/pixi-animated-webp";
+import { AnimatedWebP } from "@olduvai-jp/pixi-animated-webp";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { LandObject } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/api";
@@ -27,67 +34,24 @@ extend({ Container, Graphics, Sprite });
 const BADGE_SPRITE_SIZE = 40;
 
 /**
- * Cache the HTMLImageElement and its derived Texture per URL across mounts.
- * The browser decodes and animates the animated WebP on the <img> element;
- * we re-upload its current frame to the GPU each tick (see useAnimatedWebP).
- * Caching avoids re-decoding when the same badge mounts again (e.g. user
- * re-enters /edit).
+ * Animated WebP playback is handled by `@olduvai-jp/pixi-animated-webp`. The
+ * package's side-effect import (top of file) registers an Assets loader that
+ * resolves `*.webp` URLs to a ready `AnimatedWebP` Sprite via the WebCodecs
+ * `ImageDecoder` API. Caveat: ImageDecoder isn't supported in Safari.
+ *
+ * `Assets.load` caches the resolved Sprite per URL; we `clone()` it per tile
+ * so each placement is its own display object with its own position and
+ * playback state.
  */
-const webpImageCache = new Map<string, HTMLImageElement>();
-const webpTextureCache = new Map<string, Texture>();
+const animatedWebpTemplateCache = new Map<string, Promise<AnimatedWebP>>();
 
-interface AnimatedWebP {
-  texture: Texture;
-  image: HTMLImageElement;
-}
-
-function useAnimatedWebP(url: string): AnimatedWebP | null {
-  const [entry, setEntry] = useState<AnimatedWebP | null>(() => {
-    const tex = webpTextureCache.get(url);
-    const img = webpImageCache.get(url);
-    return tex && img ? { texture: tex, image: img } : null;
-  });
-
-  useEffect(() => {
-    const cachedTex = webpTextureCache.get(url);
-    const cachedImg = webpImageCache.get(url);
-    if (cachedTex && cachedImg) {
-      setEntry({ texture: cachedTex, image: cachedImg });
-      return;
-    }
-    let cancelled = false;
-    const img = cachedImg ?? new Image();
-    if (!cachedImg) {
-      img.crossOrigin = "anonymous";
-      img.src = url;
-      webpImageCache.set(url, img);
-    }
-    const onReady = () => {
-      if (cancelled) return;
-      const tex = Texture.from(img);
-      // Keep pixel-art crisp when scaled down to BADGE_SPRITE_SIZE.
-      tex.source.scaleMode = "nearest";
-      webpTextureCache.set(url, tex);
-      setEntry({ texture: tex, image: img });
-    };
-    if (img.complete && img.naturalWidth > 0) {
-      onReady();
-    } else {
-      img.addEventListener("load", onReady, { once: true });
-      img.addEventListener(
-        "error",
-        () => {
-          if (!cancelled) console.warn("[island] webp load failed", url);
-        },
-        { once: true },
-      );
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
-
-  return entry;
+function loadAnimatedWebpTemplate(url: string): Promise<AnimatedWebP> {
+  let promise = animatedWebpTemplateCache.get(url);
+  if (!promise) {
+    promise = Assets.load<AnimatedWebP>(url);
+    animatedWebpTemplateCache.set(url, promise);
+  }
+  return promise;
 }
 
 export interface IslandSceneProps {
@@ -588,15 +552,117 @@ interface BadgePlateProps {
 }
 
 /**
- * Animated WebP badge: loads via HTMLImageElement so the browser drives the
- * animation, then re-uploads the current frame to the GPU each Pixi tick.
+ * Animated WebP badge: clones a pre-decoded `AnimatedWebP` Sprite from the
+ * loader cache and mounts it imperatively into a child `pixiContainer`. The
+ * library subscribes the sprite to `Ticker.shared` itself (autoUpdate=true,
+ * autoPlay=true defaults), so we don't need a `useTick` here.
+ *
+ * Why imperative addChild: `AnimatedWebP` is a fully-formed Sprite instance
+ * with state baked in (frames, decoder, ticker handle). The @pixi/react
+ * reconciler creates objects from JSX props, not from pre-existing instances,
+ * so the cleanest interop is to keep its ref-managed container empty in JSX
+ * and `addChild()` the sprite ourselves.
  */
-function AnimatedBadgeSprite({ url, ...rest }: BadgePlateProps & { url: string }) {
-  const animated = useAnimatedWebP(url);
-  useTick(() => {
-    if (animated) animated.texture.source.update();
+function AnimatedBadgeSprite({
+  url,
+  obj,
+  index,
+  x,
+  y,
+  isHover,
+  onHoverObject,
+  onObjectClick,
+}: BadgePlateProps & { url: string }) {
+  const hostRef = useRef<Container | null>(null);
+  const spriteRef = useRef<AnimatedWebP | null>(null);
+  // Latest callbacks/coords kept in refs so the listeners attached once at
+  // mount always read fresh values without re-binding on every render.
+  const callbacksRef = useRef({ obj, index, onHoverObject, onObjectClick });
+  const positionRef = useRef({ x, y });
+
+  useEffect(() => {
+    callbacksRef.current = { obj, index, onHoverObject, onObjectClick };
   });
-  return <BadgePlate texture={animated?.texture ?? null} {...rest} />;
+
+  useEffect(() => {
+    positionRef.current = { x, y };
+    if (spriteRef.current) {
+      spriteRef.current.x = x;
+      spriteRef.current.y = y + 2;
+    }
+  }, [x, y]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadAnimatedWebpTemplate(url)
+      .then((template) => {
+        if (cancelled || !hostRef.current) return;
+        // Assets.load caches by URL; a single Sprite can't be displayed in
+        // two places, so each tile gets its own clone.
+        const sprite = template.clone();
+        sprite.texture.source.scaleMode = "nearest";
+        sprite.anchor.set(0.5, 1);
+        sprite.width = BADGE_SPRITE_SIZE;
+        sprite.height = BADGE_SPRITE_SIZE;
+        sprite.x = positionRef.current.x;
+        sprite.y = positionRef.current.y + 2;
+        sprite.eventMode = "static";
+        sprite.cursor = "pointer";
+        sprite.on("pointerenter", () =>
+          callbacksRef.current.onHoverObject?.(callbacksRef.current.index),
+        );
+        sprite.on("pointerleave", () =>
+          callbacksRef.current.onHoverObject?.(null),
+        );
+        sprite.on("pointertap", () =>
+          callbacksRef.current.onObjectClick?.(callbacksRef.current.obj),
+        );
+        // `clone()` overrides autoPlay to false, so the clone never subscribes
+        // to Ticker.shared on its own. `dirty = true` forces the first frame
+        // to paint on the next render — without it the sprite stays blank
+        // until the ticker advances past frame 0 (the constructor's initial
+        // `currentFrame = 0` assignment is a no-op and never marks dirty).
+        sprite.dirty = true;
+        sprite.play();
+        hostRef.current.addChild(sprite);
+        spriteRef.current = sprite;
+      })
+      .catch((err) => {
+        if (!cancelled) console.warn("[island] animated webp load failed", url, err);
+      });
+    return () => {
+      cancelled = true;
+      if (spriteRef.current) {
+        spriteRef.current.destroy();
+        spriteRef.current = null;
+      }
+    };
+  }, [url]);
+
+  const drawShadow = useCallback(
+    (g: Graphics) => {
+      g.clear();
+      g.ellipse(x, y + 4, 12, 3).fill({ color: 0x000000, alpha: 0.22 });
+      if (isHover) {
+        g.ellipse(x, y + 4, 16, 5).stroke({
+          color: 0x22d3ee,
+          width: 1,
+          alpha: 0.9,
+        });
+      }
+    },
+    [x, y, isHover],
+  );
+
+  return (
+    <pixiContainer>
+      <pixiGraphics draw={drawShadow} />
+      {/* Empty JSX container — the AnimatedWebP sprite is addChild'd onto
+          it imperatively above. Leaving JSX children empty prevents the
+          @pixi/react reconciler from clearing our manual child. */}
+      <pixiContainer ref={hostRef} />
+    </pixiContainer>
+  );
 }
 
 /**
