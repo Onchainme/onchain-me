@@ -1,7 +1,7 @@
 "use client";
 
 import { Application, extend, useTick } from "@pixi/react";
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { LandObject } from "@/lib/types";
@@ -600,16 +600,45 @@ function AnimatedBadgeSprite({ url, ...rest }: BadgePlateProps & { url: string }
 }
 
 /**
- * Static PNG badge: a single Pixi-managed texture, no per-tick GPU work.
- * `Texture.from` caches by URL across mounts.
+ * Cache the loaded Texture per URL across mounts so re-mounting (e.g. user
+ * re-enters /edit) doesn't trigger a fresh network request.
+ */
+const staticTextureCache = new Map<string, Texture>();
+
+/**
+ * Static PNG badge: load the texture via the Pixi Assets loader and render
+ * once it's ready. No per-tick GPU work. We can't use `Texture.from(url)`
+ * here — in Pixi v8 it's just a Cache lookup that returns undefined for
+ * unloaded URLs (see textureFrom.ts).
  */
 function StaticBadgeSprite({ url, ...rest }: BadgePlateProps & { url: string }) {
-  const texture = useMemo(() => {
-    const t = Texture.from(url);
-    // Keep pixel-art crisp when scaled down to BADGE_SPRITE_SIZE.
-    t.source.scaleMode = "nearest";
-    return t;
+  const [texture, setTexture] = useState<Texture | null>(
+    () => staticTextureCache.get(url) ?? null,
+  );
+
+  useEffect(() => {
+    const cached = staticTextureCache.get(url);
+    if (cached) {
+      setTexture(cached);
+      return;
+    }
+    let cancelled = false;
+    Assets.load<Texture>(url)
+      .then((tex) => {
+        if (cancelled) return;
+        // Keep pixel-art crisp when scaled down to BADGE_SPRITE_SIZE.
+        tex.source.scaleMode = "nearest";
+        staticTextureCache.set(url, tex);
+        setTexture(tex);
+      })
+      .catch((err) => {
+        if (!cancelled) console.warn("[island] png load failed", url, err);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [url]);
+
   return <BadgePlate texture={texture} {...rest} />;
 }
 
