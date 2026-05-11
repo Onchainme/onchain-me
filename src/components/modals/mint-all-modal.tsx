@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import type { InventoryItem } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/api";
-import { badgeAnimationUrl, isBadgeId } from "@/lib/badge-catalog";
+import { badgeAsset, isBadgeId } from "@/lib/badge-catalog";
 
 interface MintAllModalProps {
   items: InventoryItem[];
@@ -44,7 +44,7 @@ export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalPr
           ) : (
             eligible.map((it, i) => {
               const animUrl = isBadgeId(it.badgeId)
-                ? badgeAnimationUrl(API_BASE_URL, it.badgeId)
+                ? badgeAsset(API_BASE_URL, it.badgeId)?.url ?? null
                 : null;
               return (
                 <div

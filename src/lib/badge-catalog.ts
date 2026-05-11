@@ -28,6 +28,19 @@ export type BadgeId =
 export type BadgeProtocol = "jupiter" | "pumpfun" | "orca" | "meteora" | "seeker";
 export type BadgeTier = "bronze" | "silver" | "original" | "single";
 
+/**
+ * The single image asset a badge ships with. Per backend contract, a badge
+ * has exactly one of these — animated WebP, *or* static PNG — never both.
+ * `animated` lets consumers choose the right render path (e.g. the canvas
+ * only subscribes to per-tick GPU re-uploads when true).
+ */
+export interface BadgeAsset {
+  /** Filename served at /badges/<file>. */
+  file: string;
+  /** True when `file` is an animated WebP, false when it's a static PNG. */
+  animated: boolean;
+}
+
 export interface BadgeCatalogEntry {
   badgeId: BadgeId;
   protocol: BadgeProtocol;
@@ -44,10 +57,7 @@ export interface BadgeCatalogEntry {
   type: BuildingType;
   /** USD threshold (null for single-tier badges like Seeker). */
   thresholdUsd: number | null;
-  /** Static first-frame preview filename (served by api at /badges/<file>). */
-  previewFile: string;
-  /** Animated filename (GIF/APNG) served at /badges/<file>. */
-  animationFile: string;
+  asset: BadgeAsset;
 }
 
 const TIER_HUE: Record<BadgeTier, number> = {
@@ -86,7 +96,7 @@ function entry(
   protocol: BadgeProtocol,
   tier: BadgeTier,
   thresholdUsd: number | null,
-  files: { previewFile: string; animationFile: string },
+  asset: BadgeAsset,
   displayName?: string,
 ): BadgeCatalogEntry {
   const proto = PROTOCOL_LABEL[protocol];
@@ -105,66 +115,67 @@ function entry(
     hue: TIER_HUE[tier],
     type: PROTOCOL_BUILDING[protocol],
     thresholdUsd,
-    previewFile: files.previewFile,
-    animationFile: files.animationFile,
+    asset,
   };
 }
 
+// Per backend contract: WebP files are animated, PNGs are static. Switch the
+// entry's asset accordingly when a tier's file format changes.
 export const BADGE_CATALOG: Record<BadgeId, BadgeCatalogEntry> = {
   jupiter_volume_bronze: entry("jupiter_volume_bronze", "jupiter", "bronze", 1_000, {
-    previewFile: "bronze-cat.png",
-    animationFile: "bronze-cat.gif",
+    file: "bronze-cat.png",
+    animated: false,
   }),
   jupiter_volume_silver: entry("jupiter_volume_silver", "jupiter", "silver", 10_000, {
-    previewFile: "silver-cat.png",
-    animationFile: "silver-cat.gif",
+    file: "silver-cat.png",
+    animated: false,
   }),
   jupiter_volume_original: entry("jupiter_volume_original", "jupiter", "original", 100_000, {
-    previewFile: "cat.png",
-    animationFile: "cat.gif",
+    file: "cat.webp",
+    animated: true,
   }),
   pumpfun_volume_bronze: entry("pumpfun_volume_bronze", "pumpfun", "bronze", 1_000, {
-    previewFile: "bronze-pill.png",
-    animationFile: "bronze-pill.gif",
+    file: "bronze-pill.png",
+    animated: false,
   }),
   pumpfun_volume_silver: entry("pumpfun_volume_silver", "pumpfun", "silver", 10_000, {
-    previewFile: "silver-pill.png",
-    animationFile: "silver-pill.gif",
+    file: "silver-pill.png",
+    animated: false,
   }),
   pumpfun_volume_original: entry("pumpfun_volume_original", "pumpfun", "original", 100_000, {
-    previewFile: "pill.png",
-    animationFile: "pill.gif",
+    file: "pill.png",
+    animated: false,
   }),
   orca_position_bronze: entry("orca_position_bronze", "orca", "bronze", 1_000, {
-    previewFile: "bronze-orca.png",
-    animationFile: "bronze-orca.gif",
+    file: "bronze-orca.png",
+    animated: false,
   }),
   orca_position_silver: entry("orca_position_silver", "orca", "silver", 10_000, {
-    previewFile: "silver-orca.png",
-    animationFile: "silver-orca.gif",
+    file: "silver-orca.png",
+    animated: false,
   }),
   orca_position_original: entry("orca_position_original", "orca", "original", 100_000, {
-    previewFile: "orca.png",
-    animationFile: "orca.gif",
+    file: "orca.png",
+    animated: false,
   }),
   meteora_position_bronze: entry("meteora_position_bronze", "meteora", "bronze", 1_000, {
-    previewFile: "bronze-meteor.png",
-    animationFile: "bronze-meteor.gif",
+    file: "bronze-meteora.png",
+    animated: false,
   }),
   meteora_position_silver: entry("meteora_position_silver", "meteora", "silver", 10_000, {
-    previewFile: "silver-meteor.png",
-    animationFile: "silver-meteor.gif",
+    file: "silver-meteora.png",
+    animated: false,
   }),
   meteora_position_original: entry("meteora_position_original", "meteora", "original", 100_000, {
-    previewFile: "meteor.png",
-    animationFile: "meteor.gif",
+    file: "meteora.png",
+    animated: false,
   }),
   seeker_genesis: entry(
     "seeker_genesis",
     "seeker",
     "single",
     null,
-    { previewFile: "seeker.png", animationFile: "seeker.gif" },
+    { file: "seeker.webp", animated: true },
     "Seeker Genesis",
   ),
 };
@@ -197,23 +208,18 @@ export function inventoryItemFromBadge(
 }
 
 /**
- * Build the full URL for a badge's animated GIF. `API_BASE_URL` is the
- * NEXT_PUBLIC_API_BASE_URL the frontend was built with.
+ * Resolve a badge to its single asset (url + animated flag). Returns null
+ * for unknown ids so callers can fall back to the GlyphTile placeholder.
+ * `apiBaseUrl` is the NEXT_PUBLIC_API_BASE_URL the frontend was built with.
  */
-export function badgeAnimationUrl(
+export function badgeAsset(
   apiBaseUrl: string,
   badgeId: BadgeId | string,
-): string | null {
+): { url: string; animated: boolean } | null {
   if (!isBadgeId(badgeId)) return null;
-  const def = BADGE_CATALOG[badgeId];
-  return `${apiBaseUrl}/badges/${def.animationFile}`;
-}
-
-export function badgePreviewUrl(
-  apiBaseUrl: string,
-  badgeId: BadgeId | string,
-): string | null {
-  if (!isBadgeId(badgeId)) return null;
-  const def = BADGE_CATALOG[badgeId];
-  return `${apiBaseUrl}/badges/${def.previewFile}`;
+  const { asset } = BADGE_CATALOG[badgeId];
+  return {
+    url: `${apiBaseUrl}/badges/${asset.file}`,
+    animated: asset.animated,
+  };
 }
