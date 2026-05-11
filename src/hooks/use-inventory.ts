@@ -11,6 +11,7 @@ import {
   confirmMint,
   fetchInventory,
   fetchLand,
+  fetchMintConfig,
   importCnfts,
   putPlacements,
   requestMintSingle,
@@ -18,6 +19,7 @@ import {
   seedAllEligibilities,
   type InventoryResponse,
   type LandPlacementApi,
+  type MintConfig,
 } from "@/lib/api";
 import { useWallet } from "@/hooks/wallet";
 
@@ -39,6 +41,8 @@ interface UseInventoryResult {
   busyBadgeId: string | null;
   /** ISO timestamp of the most recent wallet scan, null if never scanned. */
   lastScanAt: string | null;
+  /** Per-mint price in lamports + creator destination. null while loading. */
+  mintConfig: MintConfig | null;
 }
 
 const PLACED_PREFIX = "placed:";
@@ -127,7 +131,7 @@ function decodeBase64(b64: string): Uint8Array {
 }
 
 export function useInventory(): UseInventoryResult {
-  const { wallet } = useWallet();
+  const { wallet, signTransaction } = useWallet();
   const walletAddress = wallet?.address ?? null;
 
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -137,6 +141,22 @@ export function useInventory(): UseInventoryResult {
   const [error, setError] = useState<string | null>(null);
   const [busyBadgeId, setBusyBadgeId] = useState<string | null>(null);
   const [lastScanAt, setLastScanAt] = useState<string | null>(null);
+  const [mintConfig, setMintConfig] = useState<MintConfig | null>(null);
+
+  // Backend's mint price + creator address are deploy-time config; pull once
+  // per session so every mint modal can render the actual cost. Cached on the
+  // server, so this is one ~50ms request on first inventory mount.
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchMintConfig(ac.signal)
+      .then(setMintConfig)
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          console.warn("[mint] failed to fetch mint config:", err);
+        }
+      });
+    return () => ac.abort();
+  }, []);
 
   const connectionRef = useRef<Connection | null>(null);
   if (!connectionRef.current) {
@@ -285,15 +305,17 @@ export function useInventory(): UseInventoryResult {
         const tx = VersionedTransaction.deserialize(txBytes);
         console.log(`[mint] ${badgeId}: deserialized, signers count=${tx.signatures.length}`);
 
-        // In Bubblegum mintV1, only the mint authority signs (already done by the
-        // backend). leafOwner is a read-only non-signer, so we don't ask the wallet
-        // to sign — Phantom would otherwise see the user is not in the signer list,
-        // mark the simulation as reverted, and corrupt the tx if the user clicked
-        // through. Submit the partially-signed tx as-is.
+        // Paid-mint flow: the backend partial-signed with the tree authority
+        // (Bubblegum requires it). The leafOwner (user) is now the fee payer
+        // AND signs the SystemProgram.transfer to the creator address, so the
+        // wallet adapter must add the second signature before submit.
+        // (Sponsored mode falls under the same path — the tx still has the
+        // user as fee payer, just without the transfer ix.)
+        const signed = await signTransaction(tx);
         const connection = connectionRef.current!;
         let sig: string;
         try {
-          sig = await connection.sendRawTransaction(tx.serialize(), {
+          sig = await connection.sendRawTransaction(signed.serialize(), {
             skipPreflight: false,
             maxRetries: 3,
           });
@@ -354,7 +376,7 @@ export function useInventory(): UseInventoryResult {
         setBusyBadgeId(null);
       }
     },
-    [walletAddress],
+    [walletAddress, signTransaction],
   );
 
   const mintItem = useCallback(
@@ -449,5 +471,6 @@ export function useInventory(): UseInventoryResult {
     error,
     busyBadgeId,
     lastScanAt,
+    mintConfig,
   };
 }

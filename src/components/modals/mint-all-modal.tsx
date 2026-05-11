@@ -21,9 +21,21 @@ interface MintAllModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  /** Per-mint price in lamports (0 = sponsored / free). null while loading. */
+  mintPriceLamports: number | null;
 }
 
-export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalProps) {
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+function formatMintPriceTotal(lamportsPer: number | null, count: number): string {
+  if (lamportsPer === null) return "…";
+  if (lamportsPer === 0) return "FREE · sponsored";
+  const total = (lamportsPer * count) / LAMPORTS_PER_SOL;
+  const trimmed = total.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+  return `${trimmed} SOL (${count} × ${(lamportsPer / LAMPORTS_PER_SOL).toString()})`;
+}
+
+export function MintAllModal({ items, open, onClose, onConfirm, mintPriceLamports }: MintAllModalProps) {
   const eligible = items.filter((i) => i.state === "eligible");
 
   return (
@@ -80,12 +92,14 @@ export function MintAllModal({ items, open, onClose, onConfirm }: MintAllModalPr
           )}
         </div>
         <Separator variant="dashed" />
-        {/* Cost is paid by the mint authority — recipient pays nothing.
-            See packages/shared/src/mint/prepare.ts (umi.identity signs/pays). */}
+        {/* Cost = mintPriceLamports × eligible.length. Wallet shows the exact
+            amount during Phantom approval (1 prompt per badge for now). */}
         <div className="flex items-center">
           <span className="font-silk text-[12px] text-muted-neon">YOUR COST</span>
           <div className="flex-1" />
-          <span className="font-px glow-y text-xs">FREE · sponsored</span>
+          <span className="font-px glow-y text-xs">
+            {formatMintPriceTotal(mintPriceLamports, eligible.length)}
+          </span>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>

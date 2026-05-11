@@ -56,6 +56,7 @@ export default function EditPage() {
     busyBadgeId,
     loading,
     lastScanAt,
+    mintConfig,
   } = useInventory();
 
   const [hovered, setHovered] = useState<number | null>(null);
@@ -151,12 +152,14 @@ export default function EditPage() {
         item={mintSingle}
         onClose={() => setMintSingle(null)}
         onConfirm={mintItem}
+        mintPriceLamports={mintConfig?.mintPriceLamports ?? null}
       />
       <MintAllModal
         items={inventory}
         open={mintAllOpen}
         onClose={() => setMintAllOpen(false)}
         onConfirm={mintAll}
+        mintPriceLamports={mintConfig?.mintPriceLamports ?? null}
       />
       <ShareModal
         open={shareOpen}

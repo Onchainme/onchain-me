@@ -163,6 +163,29 @@ export async function fetchInventory(
   return (await res.json()) as InventoryResponse;
 }
 
+export interface MintConfig {
+  /** Lamports the user pays per mint (0 = sponsored). */
+  mintPriceLamports: number;
+  /** Read-only display field — backend is the source of truth for the destination. */
+  creatorAddress: string;
+}
+
+/**
+ * Pulls the public mint config (price + creator) so the UI can display the
+ * actual cost the user will pay in their wallet. Backend caches for 5 minutes,
+ * so this is cheap to call from every page that shows the Mint button.
+ */
+export async function fetchMintConfig(signal?: AbortSignal): Promise<MintConfig> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/mint/config`, {
+    signal,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch mint config: ${res.status}`, res.status);
+  }
+  return (await res.json()) as MintConfig;
+}
+
 export async function requestMintSingle(badgeId: string): Promise<{
   transaction: string;
   badgeId: string;

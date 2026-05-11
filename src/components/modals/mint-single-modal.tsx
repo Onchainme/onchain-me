@@ -18,9 +18,22 @@ interface MintSingleModalProps {
   item: InventoryItem | null;
   onClose: () => void;
   onConfirm: (id: string) => void;
+  /** Per-mint price in lamports (0 = sponsored / free). null while loading. */
+  mintPriceLamports: number | null;
 }
 
-export function MintSingleModal({ item, onClose, onConfirm }: MintSingleModalProps) {
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+function formatMintPrice(lamports: number | null): string {
+  if (lamports === null) return "…";
+  if (lamports === 0) return "FREE · sponsored mint";
+  const sol = lamports / LAMPORTS_PER_SOL;
+  // Trim trailing zeros: 0.0500 → 0.05, 0.1000 → 0.1
+  const trimmed = sol.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+  return `${trimmed} SOL`;
+}
+
+export function MintSingleModal({ item, onClose, onConfirm, mintPriceLamports }: MintSingleModalProps) {
   // Prefer the image served by the api when we have a known badge id (animated
   // WebP or static PNG — browser handles either inside <img>). Fall back to the
   // legacy GlyphTile for ad-hoc inventory items without a catalog entry.
@@ -59,12 +72,13 @@ export function MintSingleModal({ item, onClose, onConfirm }: MintSingleModalPro
               </div>
             </div>
             <Separator variant="dashed" />
-            {/* Cost is paid by the mint authority — recipient pays nothing.
-                See packages/shared/src/mint/prepare.ts (umi.identity signs/pays). */}
+            {/* Cost is sourced from /mint/config — backend is the source of
+                truth, and the user's wallet will display the exact amount
+                during Phantom approval, so this is purely informational. */}
             <div className="flex items-center">
               <span className="font-silk text-[12px] text-muted-neon">YOUR COST</span>
               <div className="flex-1" />
-              <span className="font-px glow-c text-xs">FREE · sponsored mint</span>
+              <span className="font-px glow-c text-xs">{formatMintPrice(mintPriceLamports)}</span>
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={onClose}>
