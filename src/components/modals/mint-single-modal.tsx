@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import type { InventoryItem } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/api";
-import { badgeAnimationUrl, isBadgeId } from "@/lib/badge-catalog";
+import { badgeAsset, isBadgeId } from "@/lib/badge-catalog";
 
 interface MintSingleModalProps {
   item: InventoryItem | null;
@@ -21,11 +21,13 @@ interface MintSingleModalProps {
 }
 
 export function MintSingleModal({ item, onClose, onConfirm }: MintSingleModalProps) {
-  // Prefer the GIF served by the api when we have a known badge id; fall back
-  // to the legacy GlyphTile otherwise (covers any future ad-hoc inventory item
-  // without a catalog entry).
+  // Prefer the image served by the api when we have a known badge id (animated
+  // WebP or static PNG — browser handles either inside <img>). Fall back to the
+  // legacy GlyphTile for ad-hoc inventory items without a catalog entry.
   const animUrl =
-    item && isBadgeId(item.badgeId) ? badgeAnimationUrl(API_BASE_URL, item.badgeId) : null;
+    item && isBadgeId(item.badgeId)
+      ? badgeAsset(API_BASE_URL, item.badgeId)?.url ?? null
+      : null;
 
   return (
     <Dialog open={!!item} onOpenChange={(o) => (!o ? onClose() : undefined)}>

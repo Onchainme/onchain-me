@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import type { InventoryItem } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/api";
-import { badgeAnimationUrl, isBadgeId } from "@/lib/badge-catalog";
+import { badgeAsset, isBadgeId } from "@/lib/badge-catalog";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
 import { UI_TEXT } from "@/lib/ui-styles";
 
@@ -115,9 +115,11 @@ function InventorySlot({
 }) {
   const locked = item.state === "eligible";
   const placed = item.state === "placed";
-  // Prefer the animated GIF served by the api for known badge ids;
-  // fall back to the legacy GlyphTile when a badge isn't in the catalog.
-  const animUrl = isBadgeId(item.badgeId) ? badgeAnimationUrl(API_BASE_URL, item.badgeId) : null;
+  // Prefer the image (animated WebP or static PNG) served by the api for
+  // known badge ids; fall back to the legacy GlyphTile otherwise.
+  const animUrl = isBadgeId(item.badgeId)
+    ? badgeAsset(API_BASE_URL, item.badgeId)?.url ?? null
+    : null;
   return (
     <div className="relative">
       <button
