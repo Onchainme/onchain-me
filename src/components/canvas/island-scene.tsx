@@ -539,7 +539,7 @@ function Objects({
             obj={obj}
             index={index}
             x={p.x}
-            y={p.y + TILE_H}
+            y={p.y + TILE_H / 2}
             isHover={index === hoveredIndex}
             onHoverObject={onHoverObject}
             onObjectClick={onObjectClick}
