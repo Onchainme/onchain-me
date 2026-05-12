@@ -68,7 +68,7 @@ export default function EditPage() {
   useEffect(() => {
     if (!isConnected) {
       openConnectModal();
-      router.replace("/");
+      router.replace("/home");
     }
   }, [isConnected, openConnectModal, router]);
 

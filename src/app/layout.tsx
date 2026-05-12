@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { Press_Start_2P, VT323, Silkscreen } from "next/font/google";
+import {
+  JetBrains_Mono,
+  Press_Start_2P,
+  Silkscreen,
+  Space_Grotesk,
+  VT323,
+} from "next/font/google";
 import { WalletProvider } from "@/hooks/wallet";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -25,6 +31,20 @@ const silkscreen = Silkscreen({
   display: "swap",
 });
 
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  weight: ["400", "500", "700"],
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Onchain.me — Your Wallet, Your World",
   description:
@@ -42,6 +62,8 @@ export default function RootLayout({
         pressStart.variable,
         vt323.variable,
         silkscreen.variable,
+        spaceGrotesk.variable,
+        jetbrainsMono.variable,
       )}
     >
       <body className="min-h-screen">
