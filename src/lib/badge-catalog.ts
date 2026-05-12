@@ -109,7 +109,11 @@ function entry(
     badgeId,
     protocol,
     tier,
-    label: proto,
+    // Slot label includes the tier threshold so the user can tell
+    // "Jupiter $1k" / "Jupiter $10k" / "Jupiter $100k" apart at a glance.
+    // The earlier label was just the protocol name, which made all three
+    // tiers of the same protocol look identical in the inventory grid.
+    label: name,
     name,
     glyph: PROTOCOL_GLYPH[protocol],
     hue: TIER_HUE[tier],

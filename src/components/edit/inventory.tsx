@@ -175,7 +175,13 @@ function InventorySlot({
           </span>
         ) : null}
       </button>
-      <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon text-center mt-1">
+      {/* Truncate at slot width: full label fits in the tooltip via <button title>
+          if a user wants the threshold. Keeps the grid visually aligned even
+          when labels vary in length (Jupiter $1k vs Jupiter $100k vs Pump.fun $10k). */}
+      <div
+        className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon text-center mt-1 truncate"
+        title={item.name}
+      >
         {item.label}
       </div>
       {/* For claimed (or placed) badges with a known cNFT asset id, expose a
