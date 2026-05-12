@@ -401,6 +401,11 @@ export function useInventory(): UseInventoryResult {
         }
         if (lastErr) throw lastErr;
 
+        // Next refresh must run on-chain import again — otherwise we only
+        // imported cNFTs once per wallet session and new mints stay invisible
+        // until a full page reload.
+        importedForWalletRef.current = null;
+
         // Notify other components (Hero banner, StatsRail) so they re-fetch
         // /lands and /inventory and reflect the new score / claimed count
         // without waiting for the next page reload.
@@ -425,7 +430,9 @@ export function useInventory(): UseInventoryResult {
         await mintBadge(item.badgeId);
         await refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "mint failed");
+        const msg = err instanceof Error ? err.message : "mint failed";
+        setError(msg);
+        throw err;
       }
     },
     [inventory, mintBadge, refresh],
@@ -433,15 +440,17 @@ export function useInventory(): UseInventoryResult {
 
   const mintAll = useCallback(async () => {
     const eligible = inventory.filter((i) => i.state === "eligible");
-    for (const item of eligible) {
-      try {
+    try {
+      for (const item of eligible) {
         await mintBadge(item.badgeId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : `mint ${item.badgeId} failed`);
-        break;
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "mint batch failed");
+      throw err;
+    } finally {
+      importedForWalletRef.current = null;
+      await refresh();
     }
-    await refresh();
   }, [inventory, mintBadge, refresh]);
 
   /**
