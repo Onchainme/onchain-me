@@ -5,7 +5,7 @@ import { Connection, VersionedTransaction } from "@solana/web3.js";
 import bs58 from "bs58";
 import type { InventoryItem, LandObject } from "@/lib/types";
 import { tileLabel } from "@/lib/mock-data";
-import { BADGE_CATALOG, isBadgeId } from "@/lib/badge-catalog";
+import { BADGE_CATALOG, BADGE_IDS, isBadgeId } from "@/lib/badge-catalog";
 import {
   ApiError,
   confirmMint,
@@ -63,7 +63,16 @@ function placedIdFor(inventoryId: string) {
 function inventoryIdFromPlaced(placedId: string): string | null {
   if (!placedId.startsWith(PLACED_PREFIX)) return null;
   const withoutPrefix = placedId.slice(PLACED_PREFIX.length);
-  const sep = withoutPrefix.lastIndexOf(":");
+  // Two id schemes feed into the placed list and we must invert both:
+  //   1. placedIdFor("inv-<badgeId>")            → "placed:inv-<badgeId>:<timestamp>"
+  //   2. buildPlacedFromApi (server-loaded)      → "placed:inv-<badgeId>:<x>:<y>"
+  // `inv-<badgeId>` never contains a colon (badge ids are snake_case), so the
+  // first colon always ends the inventory id portion. Using `indexOf` instead
+  // of `lastIndexOf` correctly handles both formats — the previous lastIndexOf
+  // returned "inv-X:4" for the API format, which never matched any inventory
+  // item, so removing a placed badge left the inventory state stuck on
+  // "placed" and the user couldn't re-place it without a hard reload.
+  const sep = withoutPrefix.indexOf(":");
   return sep === -1 ? withoutPrefix : withoutPrefix.slice(0, sep);
 }
 
@@ -89,8 +98,10 @@ function buildInventoryFromApi(
       assetId,
     });
   }
+  const seen = new Set(out.map((it) => it.badgeId));
   for (const elig of api.eligible) {
     if (!isBadgeId(elig.badgeId)) continue;
+    seen.add(elig.badgeId);
     const def = BADGE_CATALOG[elig.badgeId];
     out.push({
       id: `inv-${elig.badgeId}`,
@@ -103,6 +114,26 @@ function buildInventoryFromApi(
       type: def.type,
       state: "eligible",
       isNew: true,
+    });
+  }
+  // Round out the inventory with every catalog badge the wallet hasn't earned
+  // yet. Shown as "locked" — visible but disabled — so the user understands
+  // the full set of achievable badges instead of staring at an empty list
+  // before the first scan completes. Ordering matches BADGE_IDS (which mirrors
+  // the registry order: jupiter → pumpfun → orca → meteora → seeker).
+  for (const badgeId of BADGE_IDS) {
+    if (seen.has(badgeId)) continue;
+    const def = BADGE_CATALOG[badgeId];
+    out.push({
+      id: `inv-${badgeId}`,
+      badgeId,
+      glyph: def.glyph,
+      label: def.label,
+      protocol: def.protocol,
+      name: def.name,
+      hue: def.hue,
+      type: def.type,
+      state: "locked",
     });
   }
   return out;

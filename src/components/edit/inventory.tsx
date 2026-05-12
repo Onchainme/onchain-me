@@ -32,7 +32,9 @@ const TAB_ACCENT: Record<Filter, string> = {
 
 const matchesFilter = (item: InventoryItem, filter: Filter) => {
   if (filter === "all") return true;
-  if (filter === "claimed") return item.state !== "eligible";
+  // CLAIMED tab: anything the user actually owns (minted, regardless of placed)
+  if (filter === "claimed") return item.state === "claimed" || item.state === "placed";
+  // ELIGIBLE tab: earned via scan, ready to mint
   return item.state === "eligible";
 };
 
@@ -113,8 +115,15 @@ function InventorySlot({
   active: boolean;
   onClick: () => void;
 }) {
-  const locked = item.state === "eligible";
+  // Visual taxonomy:
+  //   locked          — catalog entry not yet earned. Greyed out, inert.
+  //   eligible        — earned, ready to mint. Lock icon + clickable to mint.
+  //   placed          — already on the map. Dim, disabled until removed.
+  //   claimed         — minted, off the map. Full color, click to select & place.
+  const locked = item.state === "locked";
+  const eligible = item.state === "eligible";
   const placed = item.state === "placed";
+  const dimmed = locked || eligible;
   // Prefer the image (animated WebP or static PNG) served by the api for
   // known badge ids; fall back to the legacy GlyphTile otherwise.
   const animUrl = isBadgeId(item.badgeId)
@@ -125,14 +134,26 @@ function InventorySlot({
       <button
         type="button"
         onClick={onClick}
-        disabled={placed}
+        // Locked = not earned yet, so clicking is a no-op (no action wired).
+        // Placed = already on map, must be removed first.
+        disabled={placed || locked}
         className={cn(
           "slot",
-          locked ? "locked" : "filled",
+          dimmed ? "locked" : "filled",
           active && "active",
           item.isNew && "new",
           placed && "opacity-40 cursor-default",
+          locked && "cursor-default",
         )}
+        title={
+          locked
+            ? `${item.name} — not yet earned. Update inventory to scan your wallet.`
+            : eligible
+              ? `${item.name} — eligible, click to mint`
+              : placed
+                ? `${item.name} — placed on the island`
+                : `${item.name} — click to select then place on a tile`
+        }
       >
         {animUrl ? (
           <img
@@ -140,14 +161,15 @@ function InventorySlot({
             alt={item.name}
             className={cn(
               "block w-full h-full object-contain image-render-pixel",
-              locked && "opacity-50",
+              locked && "opacity-30 grayscale",
+              eligible && "opacity-80",
             )}
             draggable={false}
           />
         ) : (
-          <GlyphTile glyph={item.glyph} hue={item.hue} size="sm" dim={locked} />
+          <GlyphTile glyph={item.glyph} hue={item.hue} size="sm" dim={dimmed} />
         )}
-        {locked ? (
+        {dimmed ? (
           <span className="lock">
             <Lock className="w-2.5 h-2.5" />
           </span>
