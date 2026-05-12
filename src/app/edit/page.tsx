@@ -38,7 +38,7 @@ const ISLAND_W = 900;
 const ISLAND_H = 680;
 
 export default function EditPage() {
-  const { isConnected, wallet, openConnectModal } = useWallet();
+  const { isConnected, isSessionReady, wallet, openConnectModal } = useWallet();
   const router = useRouter();
   const {
     inventory,
@@ -64,15 +64,17 @@ export default function EditPage() {
   const [mintAllOpen, setMintAllOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
-  // Guard: this page requires a wallet. Redirect home and open connect modal.
+  // Guard: wait for /auth/me before treating the user as logged out (otherwise
+  // we flash "disconnected" on every reload and force another message signature).
   useEffect(() => {
+    if (!isSessionReady) return;
     if (!isConnected) {
       openConnectModal();
       router.replace("/home");
     }
-  }, [isConnected, openConnectModal, router]);
+  }, [isConnected, isSessionReady, openConnectModal, router]);
 
-  if (!isConnected) return null;
+  if (!isSessionReady || !isConnected) return null;
 
   const activeItem = inventory.find((i) => i.id === activeItemId) ?? null;
   const address = wallet?.address ?? MY_SHORT;
