@@ -16,7 +16,8 @@ import { GlyphTile } from "@/components/ui/glyph-tile";
 import { WalletAvatar } from "@/components/ui/wallet-avatar";
 import { useWallet } from "@/hooks/wallet";
 import { ApiError, fetchLand, type LandResponse } from "@/lib/api";
-import { BADGE_CATALOG, isBadgeId } from "@/lib/badge-catalog";
+import { API_BASE_URL } from "@/lib/api";
+import { BADGE_CATALOG, badgeAsset, isBadgeId } from "@/lib/badge-catalog";
 import { tileLabel } from "@/lib/mock-data";
 import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
@@ -230,28 +231,47 @@ function PlacedObjectsList({
             No objects placed yet.
           </div>
         ) : (
-          objects.map((o, i) => (
-            <button
-              key={o.id}
-              type="button"
-              onMouseEnter={() => onHover(i)}
-              onMouseLeave={() => onHover(null)}
-              className={cn(
-                "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
-                hovered === i
-                  ? "bg-panel-2 border-cyan-neon"
-                  : "bg-bg-2 border-border-neon",
-              )}
-            >
-              <GlyphTile glyph={o.glyph} hue={o.hue} size="md" />
-              <div className="flex-1 min-w-0">
-                <div className="font-px text-[12px] 2xl:text-[16px] text-ink">{o.name}</div>
-                <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon mt-0.5">
-                  {o.protocol} · TILE {o.tile}
+          objects.map((o, i) => {
+            // Prefer the rendered badge asset (animated WebP / static PNG)
+            // when we recognise the badgeId. Fall back to the legacy
+            // GlyphTile so any future custom-not-yet-catalogued objects
+            // still render with the protocol initial + hue.
+            const assetUrl =
+              o.badgeId && isBadgeId(o.badgeId)
+                ? badgeAsset(API_BASE_URL, o.badgeId)?.url ?? null
+                : null;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                onMouseEnter={() => onHover(i)}
+                onMouseLeave={() => onHover(null)}
+                className={cn(
+                  "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
+                  hovered === i
+                    ? "bg-panel-2 border-cyan-neon"
+                    : "bg-bg-2 border-border-neon",
+                )}
+              >
+                {assetUrl ? (
+                  <img
+                    src={assetUrl}
+                    alt={o.name}
+                    className="w-10 h-10 object-contain image-render-pixel border border-border-neon bg-bg-2"
+                    draggable={false}
+                  />
+                ) : (
+                  <GlyphTile glyph={o.glyph} hue={o.hue} size="md" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-px text-[12px] 2xl:text-[16px] text-ink">{o.name}</div>
+                  <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon mt-0.5">
+                    {o.protocol} · TILE {o.tile}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))
+              </button>
+            );
+          })
         )}
       </div>
       <Separator variant="dashed" />
