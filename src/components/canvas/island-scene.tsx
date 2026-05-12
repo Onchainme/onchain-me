@@ -1,10 +1,19 @@
 "use client";
 
 import { Application, extend } from "@pixi/react";
-import { Container, Graphics } from "pixi.js";
-import { useCallback, useMemo, useState } from "react";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
+// Bare side-effect import runs `AnimatedWebPAsset.mjs` which calls
+// `extensions.add(...)` to register the `.webp` Assets loader. Without it the
+// bundler tree-shakes the registration (the package has no `sideEffects`
+// declaration in its package.json) and Assets.load returns a plain Texture
+// — no .clone(), no animation.
+import "@olduvai-jp/pixi-animated-webp";
+import { AnimatedWebP } from "@olduvai-jp/pixi-animated-webp";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { LandObject } from "@/lib/types";
+import { API_BASE_URL } from "@/lib/api";
+import { badgeAsset, isBadgeId } from "@/lib/badge-catalog";
 import {
   BLOCK_H,
   SIDE_LAYERS,
@@ -20,7 +29,30 @@ import {
 import { getBuildingShape, type Pixel } from "./building-shapes";
 import { Hamsters } from "./Hamsters";
 
-extend({ Container, Graphics });
+extend({ Container, Graphics, Sprite });
+
+const BADGE_SPRITE_SIZE = 40;
+
+/**
+ * Animated WebP playback is handled by `@olduvai-jp/pixi-animated-webp`. The
+ * package's side-effect import (top of file) registers an Assets loader that
+ * resolves `*.webp` URLs to a ready `AnimatedWebP` Sprite via the WebCodecs
+ * `ImageDecoder` API. Caveat: ImageDecoder isn't supported in Safari.
+ *
+ * `Assets.load` caches the resolved Sprite per URL; we `clone()` it per tile
+ * so each placement is its own display object with its own position and
+ * playback state.
+ */
+const animatedWebpTemplateCache = new Map<string, Promise<AnimatedWebP>>();
+
+function loadAnimatedWebpTemplate(url: string): Promise<AnimatedWebP> {
+  let promise = animatedWebpTemplateCache.get(url);
+  if (!promise) {
+    promise = Assets.load<AnimatedWebP>(url);
+    animatedWebpTemplateCache.set(url, promise);
+  }
+  return promise;
+}
 
 export interface IslandSceneProps {
   width: number;
@@ -30,6 +62,9 @@ export interface IslandSceneProps {
   objects: LandObject[];
   /** When true, draws tile outlines and enables tile hover/click feedback. */
   showGrid?: boolean;
+  /** Visual scale of the island (tiles, side blocks, buildings, hamsters).
+   *  The sky/background stays full-canvas. Defaults to 1. */
+  scale?: number;
   hoveredIndex?: number | null;
   onHoverObject?: (i: number | null) => void;
   onTileClick?: (gx: number, gy: number) => void;
@@ -56,9 +91,10 @@ export function IslandScene(props: IslandSceneProps) {
 function IslandContent({
   width,
   height,
-  gridSize = 10,
+  gridSize = 5,
   objects,
   showGrid = false,
+  scale = 1,
   hoveredIndex = null,
   onHoverObject,
   onTileClick,
@@ -72,13 +108,17 @@ function IslandContent({
     [objects],
   );
 
+  // Scale the island around (cx, cy) by translating by cx*(1-scale), cy*(1-scale)
+  // so a child drawn at (cx+dx, cy+dy) renders at (cx + scale*dx, cy + scale*dy).
+  const offsetX = cx * (1 - scale);
+  const offsetY = cy * (0.5 - scale);
+
   return (
     <pixiContainer>
       <Sky width={width} height={height} />
-      <pixiContainer>
-      <Hamsters gridSize={gridSize} project={project} />
+      <pixiContainer x={offsetX} y={offsetY} scale={scale}>
+        <Hamsters gridSize={gridSize} project={project} />
         <SideBlocks gridSize={gridSize} project={project} />
-        
         <TileGrid
           gridSize={gridSize}
           project={project}
@@ -436,7 +476,7 @@ function Objects({
             obj={obj}
             index={index}
             x={p.x}
-            y={p.y + TILE_H}
+            y={p.y + TILE_H / 2}
             isHover={index === hoveredIndex}
             onHoverObject={onHoverObject}
             onObjectClick={onObjectClick}
@@ -448,6 +488,277 @@ function Objects({
 }
 
 function BuildingSprite({
+  obj,
+  index,
+  x,
+  y,
+  isHover,
+  onHoverObject,
+  onObjectClick,
+}: {
+  obj: LandObject;
+  index: number;
+  x: number;
+  y: number;
+  isHover: boolean;
+  onHoverObject?: (i: number | null) => void;
+  onObjectClick?: (obj: LandObject) => void;
+}) {
+  // Map LandObject → badge: a single image asset per badge (animated WebP or
+  // static PNG, never both). The animated branch subscribes to the Pixi
+  // ticker; the static branch doesn't, so PNG-only badges cost zero per-frame
+  // GPU work. Non-badge objects fall through to the legacy pixel-art building.
+  if (obj.badgeId && isBadgeId(obj.badgeId)) {
+    const asset = badgeAsset(API_BASE_URL, obj.badgeId);
+    if (asset) {
+      const shared = {
+        obj,
+        index,
+        x,
+        y,
+        isHover,
+        onHoverObject,
+        onObjectClick,
+      };
+      return asset.animated ? (
+        <AnimatedBadgeSprite url={asset.url} {...shared} />
+      ) : (
+        <StaticBadgeSprite url={asset.url} {...shared} />
+      );
+    }
+  }
+
+  return (
+    <BuildingShapeSprite
+      obj={obj}
+      index={index}
+      x={x}
+      y={y}
+      isHover={isHover}
+      onHoverObject={onHoverObject}
+      onObjectClick={onObjectClick}
+    />
+  );
+}
+
+interface BadgePlateProps {
+  obj: LandObject;
+  index: number;
+  x: number;
+  y: number;
+  isHover: boolean;
+  onHoverObject?: (i: number | null) => void;
+  onObjectClick?: (obj: LandObject) => void;
+}
+
+/**
+ * Animated WebP badge: clones a pre-decoded `AnimatedWebP` Sprite from the
+ * loader cache and mounts it imperatively into a child `pixiContainer`. The
+ * library subscribes the sprite to `Ticker.shared` itself (autoUpdate=true,
+ * autoPlay=true defaults), so we don't need a `useTick` here.
+ *
+ * Why imperative addChild: `AnimatedWebP` is a fully-formed Sprite instance
+ * with state baked in (frames, decoder, ticker handle). The @pixi/react
+ * reconciler creates objects from JSX props, not from pre-existing instances,
+ * so the cleanest interop is to keep its ref-managed container empty in JSX
+ * and `addChild()` the sprite ourselves.
+ */
+function AnimatedBadgeSprite({
+  url,
+  obj,
+  index,
+  x,
+  y,
+  isHover,
+  onHoverObject,
+  onObjectClick,
+}: BadgePlateProps & { url: string }) {
+  const hostRef = useRef<Container | null>(null);
+  const spriteRef = useRef<AnimatedWebP | null>(null);
+  // Latest callbacks/coords kept in refs so the listeners attached once at
+  // mount always read fresh values without re-binding on every render.
+  const callbacksRef = useRef({ obj, index, onHoverObject, onObjectClick });
+  const positionRef = useRef({ x, y });
+
+  useEffect(() => {
+    callbacksRef.current = { obj, index, onHoverObject, onObjectClick };
+  });
+
+  useEffect(() => {
+    positionRef.current = { x, y };
+    if (spriteRef.current) {
+      spriteRef.current.x = x;
+      spriteRef.current.y = y + 2;
+    }
+  }, [x, y]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadAnimatedWebpTemplate(url)
+      .then((template) => {
+        if (cancelled || !hostRef.current) return;
+        // Assets.load caches by URL; a single Sprite can't be displayed in
+        // two places, so each tile gets its own clone.
+        const sprite = template.clone();
+        sprite.texture.source.scaleMode = "nearest";
+        sprite.anchor.set(0.5, 1);
+        sprite.width = BADGE_SPRITE_SIZE;
+        sprite.height = BADGE_SPRITE_SIZE;
+        sprite.x = positionRef.current.x;
+        sprite.y = positionRef.current.y + 2;
+        sprite.eventMode = "static";
+        sprite.cursor = "pointer";
+        sprite.on("pointerenter", () =>
+          callbacksRef.current.onHoverObject?.(callbacksRef.current.index),
+        );
+        sprite.on("pointerleave", () =>
+          callbacksRef.current.onHoverObject?.(null),
+        );
+        sprite.on("pointertap", () =>
+          callbacksRef.current.onObjectClick?.(callbacksRef.current.obj),
+        );
+        // `clone()` overrides autoPlay to false, so the clone never subscribes
+        // to Ticker.shared on its own. `dirty = true` forces the first frame
+        // to paint on the next render — without it the sprite stays blank
+        // until the ticker advances past frame 0 (the constructor's initial
+        // `currentFrame = 0` assignment is a no-op and never marks dirty).
+        sprite.dirty = true;
+        sprite.play();
+        hostRef.current.addChild(sprite);
+        spriteRef.current = sprite;
+      })
+      .catch((err) => {
+        if (!cancelled) console.warn("[island] animated webp load failed", url, err);
+      });
+    return () => {
+      cancelled = true;
+      if (spriteRef.current) {
+        spriteRef.current.destroy();
+        spriteRef.current = null;
+      }
+    };
+  }, [url]);
+
+  const drawShadow = useCallback(
+    (g: Graphics) => {
+      g.clear();
+      g.ellipse(x, y + 4, 12, 3).fill({ color: 0x000000, alpha: 0.22 });
+      if (isHover) {
+        g.ellipse(x, y + 4, 16, 5).stroke({
+          color: 0x22d3ee,
+          width: 1,
+          alpha: 0.9,
+        });
+      }
+    },
+    [x, y, isHover],
+  );
+
+  return (
+    <pixiContainer>
+      <pixiGraphics draw={drawShadow} />
+      {/* Empty JSX container — the AnimatedWebP sprite is addChild'd onto
+          it imperatively above. Leaving JSX children empty prevents the
+          @pixi/react reconciler from clearing our manual child. */}
+      <pixiContainer ref={hostRef} />
+    </pixiContainer>
+  );
+}
+
+/**
+ * Cache the loaded Texture per URL across mounts so re-mounting (e.g. user
+ * re-enters /edit) doesn't trigger a fresh network request.
+ */
+const staticTextureCache = new Map<string, Texture>();
+
+/**
+ * Static PNG badge: load the texture via the Pixi Assets loader and render
+ * once it's ready. No per-tick GPU work. We can't use `Texture.from(url)`
+ * here — in Pixi v8 it's just a Cache lookup that returns undefined for
+ * unloaded URLs (see textureFrom.ts).
+ */
+function StaticBadgeSprite({ url, ...rest }: BadgePlateProps & { url: string }) {
+  const [texture, setTexture] = useState<Texture | null>(
+    () => staticTextureCache.get(url) ?? null,
+  );
+
+  useEffect(() => {
+    const cached = staticTextureCache.get(url);
+    if (cached) {
+      setTexture(cached);
+      return;
+    }
+    let cancelled = false;
+    Assets.load<Texture>(url)
+      .then((tex) => {
+        if (cancelled) return;
+        // Keep pixel-art crisp when scaled down to BADGE_SPRITE_SIZE.
+        tex.source.scaleMode = "nearest";
+        staticTextureCache.set(url, tex);
+        setTexture(tex);
+      })
+      .catch((err) => {
+        if (!cancelled) console.warn("[island] png load failed", url, err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  return <BadgePlate texture={texture} {...rest} />;
+}
+
+/** Shared layout: shadow + sprite + hover/click handlers. */
+function BadgePlate({
+  texture,
+  obj,
+  index,
+  x,
+  y,
+  isHover,
+  onHoverObject,
+  onObjectClick,
+}: BadgePlateProps & { texture: Texture | null }) {
+  const interactive = !!onHoverObject || !!onObjectClick;
+
+  const drawShadow = useCallback(
+    (g: Graphics) => {
+      g.clear();
+      g.ellipse(x, y + 4, 12, 3).fill({ color: 0x000000, alpha: 0.22 });
+      if (isHover) {
+        g.ellipse(x, y + 4, 16, 5).stroke({
+          color: 0x22d3ee,
+          width: 1,
+          alpha: 0.9,
+        });
+      }
+    },
+    [x, y, isHover],
+  );
+
+  return (
+    <pixiContainer>
+      <pixiGraphics draw={drawShadow} />
+      {texture ? (
+        <pixiSprite
+          texture={texture}
+          x={x}
+          y={y + 2}
+          anchor={{ x: 0.5, y: 1 }}
+          width={BADGE_SPRITE_SIZE}
+          height={BADGE_SPRITE_SIZE}
+          eventMode={interactive ? "static" : "passive"}
+          cursor={onObjectClick ? "pointer" : "default"}
+          onPointerEnter={() => onHoverObject?.(index)}
+          onPointerLeave={() => onHoverObject?.(null)}
+          onPointerTap={() => onObjectClick?.(obj)}
+        />
+      ) : null}
+    </pixiContainer>
+  );
+}
+
+function BuildingShapeSprite({
   obj,
   index,
   x,

@@ -10,7 +10,12 @@ import {
   useState,
 } from "react";
 import bs58 from "bs58";
-import { WalletReadyState, type MessageSignerWalletAdapter } from "@solana/wallet-adapter-base";
+import {
+  WalletReadyState,
+  type MessageSignerWalletAdapter,
+  type SignerWalletAdapter,
+} from "@solana/wallet-adapter-base";
+import type { Transaction, VersionedTransaction } from "@solana/web3.js";
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
 import {
   PhantomWalletAdapter,
@@ -22,12 +27,16 @@ interface WalletContextValue {
   wallet: Wallet | null;
   isConnected: boolean;
   isConnecting: boolean;
+  /** True once the initial /auth/me check has completed (wallet is null OR set). */
+  isSessionReady: boolean;
   authError: string | null;
   connect: (walletName: WalletProviderName) => Promise<void>;
   disconnect: () => Promise<void>;
   openConnectModal: () => void;
   closeConnectModal: () => void;
   isConnectOpen: boolean;
+  /** Sign a transaction using the currently connected wallet adapter. */
+  signTransaction: <T extends Transaction | VersionedTransaction>(tx: T) => Promise<T>;
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -97,9 +106,11 @@ async function parseError(response: Response) {
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isSessionReady, setIsSessionReady] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isConnectOpen, setConnectOpen] = useState(false);
   const adaptersRef = useRef<Partial<Record<WalletProviderName, MessageSignerWalletAdapter>>>({});
+  const activeAdapterRef = useRef<MessageSignerWalletAdapter | null>(null);
 
   const getAdapter = useCallback((walletName: WalletProviderName) => {
     const existing = adaptersRef.current[walletName];
@@ -130,6 +141,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setWallet({ address: data.wallet, shortAddress: toShortAddress(data.wallet) });
     } catch {
       setWallet(null);
+    } finally {
+      setIsSessionReady(true);
     }
   }, []);
 
@@ -157,6 +170,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (!walletAddress) {
         throw new Error(`${WALLET_LABELS[walletName]} connected but no public key was returned.`);
       }
+      activeAdapterRef.current = adapter;
 
       const nonceResponse = await fetch(getApiUrl("/api/v1/auth/nonce"), {
         method: "POST",
@@ -215,6 +229,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         } catch {}
       }),
     );
+    activeAdapterRef.current = null;
     try {
       await fetch(getApiUrl("/api/v1/auth/logout"), {
         method: "POST",
@@ -224,11 +239,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setWallet(null);
   }, []);
 
+  const signTransaction = useCallback(
+    async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
+      const adapter = activeAdapterRef.current as SignerWalletAdapter | null;
+      if (!adapter) throw new Error("Wallet not connected");
+      if (!adapter.signTransaction) {
+        throw new Error("Connected wallet does not support transaction signing");
+      }
+      return (await adapter.signTransaction(tx)) as T;
+    },
+    [],
+  );
+
   const value = useMemo<WalletContextValue>(
     () => ({
       wallet,
       isConnected: !!wallet,
       isConnecting,
+      isSessionReady,
       authError,
       connect,
       disconnect,
@@ -238,8 +266,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setConnectOpen(false);
       },
       isConnectOpen,
+      signTransaction,
     }),
-    [wallet, isConnecting, authError, connect, disconnect, isConnectOpen],
+    [wallet, isConnecting, isSessionReady, authError, connect, disconnect, isConnectOpen, signTransaction],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

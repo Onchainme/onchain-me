@@ -9,6 +9,7 @@ export type BuildingType =
 
 export interface LandObject {
   id: string;
+  badgeId?: string;
   gx: number;
   gy: number;
   hue: number;
@@ -22,14 +23,24 @@ export interface LandObject {
 
 export interface InventoryItem {
   id: string;
+  badgeId: string;
   glyph: string;
   label: string;
   protocol: string;
   hue: number;
   type: BuildingType;
-  state: "placed" | "claimed" | "eligible";
+  /**
+   * Item lifecycle:
+   *   placed   — minted cNFT currently on the user's island
+   *   claimed  — minted cNFT not yet placed
+   *   eligible — earned via scan, ready to mint (paid)
+   *   locked   — catalog entry the user hasn't earned yet; visible but inert
+   */
+  state: "placed" | "claimed" | "eligible" | "locked";
   isNew?: boolean;
   name: string;
+  /** cNFT asset id for claimed/placed items. Empty for eligible-only entries. */
+  assetId?: string | null;
 }
 
 export interface LandSummary {

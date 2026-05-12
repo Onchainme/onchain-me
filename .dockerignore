@@ -1,0 +1,30 @@
+# deps & build output (rebuilt inside the image)
+node_modules
+.next
+out
+build
+coverage
+
+# env (passed via docker compose / build-args)
+.env
+.env.local
+.env.*.local
+.env.production
+
+# vcs & editors
+.git
+.gitignore
+.idea
+.vscode
+*.log
+
+# misc
+README.md
+.DS_Store
+.eslintcache
+*.tsbuildinfo
+
+# do NOT ignore Dockerfile / next.config.ts / tsconfig.json
+!Dockerfile
+!next.config.ts
+!tsconfig.json

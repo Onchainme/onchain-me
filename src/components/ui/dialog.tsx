@@ -86,7 +86,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(dialogContentVariants({ accent }), className)}
-        style={{ maxWidth: 480, ...style }}
+        style={style}
         {...props}
       >
         {children}

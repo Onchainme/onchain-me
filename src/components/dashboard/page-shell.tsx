@@ -10,7 +10,16 @@ interface PageShellProps {
 
 export function PageShell({ children, className }: PageShellProps) {
   return (
-    <div className={cn("page-bg stars scan min-h-screen relative", className)}>
+    <div
+      className={cn(
+        "page-bg stars scan min-h-screen relative isolate",
+        className,
+      )}
+    >
+      <div
+        aria-hidden
+        className="bg-grid-fade pointer-events-none fixed inset-0 -z-10"
+      />
       <Header />
       <main>{children}</main>
       <ConnectWalletModalLazy />

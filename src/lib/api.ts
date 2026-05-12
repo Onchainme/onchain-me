@@ -126,6 +126,299 @@ export async function fetchBadges(signal?: AbortSignal): Promise<Badge[]> {
   return json.items;
 }
 
+export interface InventoryClaimedApi {
+  badgeId: string;
+  weight: number;
+  assetId: string;
+}
+
+export interface InventoryEligibleApi {
+  badgeId: string;
+  weight: number;
+  eligibleSince: string;
+  meta: Record<string, unknown>;
+}
+
+export interface InventoryResponse {
+  claimed: InventoryClaimedApi[];
+  eligible: InventoryEligibleApi[];
+  /** ISO timestamp of the wallet's most recent scan, null if never scanned. */
+  lastScanAt?: string | null;
+  /** ISO timestamp of the most recent on-chain position snapshot. */
+  positionsTakenAt?: string | null;
+}
+
+export async function fetchInventory(
+  wallet: string,
+  signal?: AbortSignal,
+): Promise<InventoryResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/lands/${wallet}/inventory`, {
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch inventory: ${res.status}`, res.status);
+  }
+  return (await res.json()) as InventoryResponse;
+}
+
+export interface MintConfig {
+  /** Lamports the user pays per mint (0 = sponsored). */
+  mintPriceLamports: number;
+  /** Read-only display field — backend is the source of truth for the destination. */
+  creatorAddress: string;
+}
+
+/**
+ * Pulls the public mint config (price + creator) so the UI can display the
+ * actual cost the user will pay in their wallet. Backend caches for 5 minutes,
+ * so this is cheap to call from every page that shows the Mint button.
+ */
+export async function fetchMintConfig(signal?: AbortSignal): Promise<MintConfig> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/mint/config`, {
+    signal,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch mint config: ${res.status}`, res.status);
+  }
+  return (await res.json()) as MintConfig;
+}
+
+export async function requestMintSingle(badgeId: string): Promise<{
+  transaction: string;
+  badgeId: string;
+  expiresAt: string;
+}> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/mint/single`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ badgeId }),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`mint/single failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as { transaction: string; badgeId: string; expiresAt: string };
+}
+
+export async function confirmMint(
+  signature: string,
+  badgeId: string,
+): Promise<{
+  badgeId: string;
+  mintSignature: string;
+  assetId: string | null;
+  alreadyClaimed: boolean;
+}> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/mint/confirm`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ signature, badgeId }),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`mint/confirm failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as {
+    badgeId: string;
+    mintSignature: string;
+    assetId: string | null;
+    alreadyClaimed: boolean;
+  };
+}
+
+export async function seedEligibility(badgeId: string): Promise<{ created: boolean }> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/dev/seed-eligibility`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ badgeId }),
+  });
+  if (!res.ok) {
+    throw new ApiError(`seed-eligibility failed: ${res.status}`, res.status);
+  }
+  return (await res.json()) as { created: boolean };
+}
+
+export interface LandPlacementApi {
+  badgeId: string;
+  x: number;
+  y: number;
+}
+
+export interface LandResponse {
+  wallet: string;
+  stats: {
+    protocols: number;
+    transactions: number;
+    score: number;
+    rank: number;
+  };
+  placements: LandPlacementApi[];
+  ogImageUrl: string | null;
+}
+
+export async function fetchLand(wallet: string, signal?: AbortSignal): Promise<LandResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/lands/${wallet}`, {
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch land: ${res.status}`, res.status);
+  }
+  return (await res.json()) as LandResponse;
+}
+
+export async function putPlacements(
+  wallet: string,
+  placements: LandPlacementApi[],
+): Promise<{ ok: true; count: number }> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/placements/${wallet}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ placements }),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`placements PUT failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as { ok: true; count: number };
+}
+
+export interface ImportResult {
+  imported: number;
+  badgeIds: string[];
+  skipped: number;
+  assetsScanned: number;
+  scoreDelta: number;
+}
+
+export async function importCnfts(): Promise<ImportResult> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/import/scan-cnfts`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`import/scan-cnfts failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as ImportResult;
+}
+
+export async function seedAllEligibilities(): Promise<{ badgeIds: string[]; createdCount: number }> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/dev/seed-eligibilities-all`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) {
+    throw new ApiError(`seed-eligibilities-all failed: ${res.status}`, res.status);
+  }
+  return (await res.json()) as { badgeIds: string[]; createdCount: number };
+}
+
+// ---------------------------------------------------------------------------
+// Wallet scan — Helius txs for swap volume + on-chain position queries for
+// Orca/Meteora/Seeker, evaluated by the worker into BadgeEligibility rows.
+// ---------------------------------------------------------------------------
+
+export type ScanMode = "full" | "incremental";
+
+export interface ScanJobStatus {
+  status: "queued" | "running" | "done" | "failed";
+  progress: { phase?: string; processed?: number; total?: number } | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+}
+
+export async function triggerScan(
+  wallet: string,
+  mode: ScanMode = "incremental",
+): Promise<{ jobId: string }> {
+  const url = `${API_BASE_URL}/api/v1/scan/${wallet}?mode=${mode}`;
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string; code?: string } };
+      if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? ""}`;
+    } catch {}
+    throw new ApiError(`scan trigger failed: ${detail}`, res.status);
+  }
+  return (await res.json()) as { jobId: string };
+}
+
+export async function fetchScanJob(jobId: string): Promise<ScanJobStatus> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/scan/job/${jobId}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new ApiError(`scan job lookup failed: ${res.status}`, res.status);
+  }
+  return (await res.json()) as ScanJobStatus;
+}
+
+/** Triggers a scan and polls until done/failed (or `timeoutMs` reached). */
+export async function runScan(
+  wallet: string,
+  mode: ScanMode = "incremental",
+  timeoutMs = 120_000,
+): Promise<ScanJobStatus> {
+  const { jobId } = await triggerScan(wallet, mode);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const status = await fetchScanJob(jobId);
+    if (status.status === "done" || status.status === "failed") return status;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  throw new ApiError(`scan job ${jobId} timed out after ${timeoutMs}ms`, 504);
+}
+
+// ---------------------------------------------------------------------------
+// Backwards-compatibility aliases — older code on the `dev` branch (e.g.
+// app/my-land/page.tsx) imports these names. Forwarding to the canonical
+// fetchLand/fetchInventory keeps that code working without a refactor.
+// ---------------------------------------------------------------------------
+export type ApiLandDetails = LandResponse;
+export type ApiInventory = InventoryResponse;
+export type ApiInventoryClaimedItem = InventoryClaimedApi;
+export type ApiInventoryEligibleItem = InventoryEligibleApi;
+
+export const fetchLandByWallet = (wallet: string, signal?: AbortSignal) =>
+  fetchLand(wallet, signal);
+export const fetchLandInventory = (wallet: string, signal?: AbortSignal) =>
+  fetchInventory(wallet, signal);
+
 // Map an API land into the dashboard's LandSummary view-model.
 export function toLandSummary(item: ApiLand): LandSummary {
   return {

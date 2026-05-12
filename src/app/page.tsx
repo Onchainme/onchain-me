@@ -1,50 +1,26 @@
-import { PageShell } from "@/components/dashboard/page-shell";
-import { Hero } from "@/components/dashboard/hero";
-import { LiveTicker } from "@/components/dashboard/live-ticker";
-import { LandsExplorer } from "@/components/dashboard/lands-explorer";
+import { Landing } from "@/components/landing/landing";
 import {
-  fetchBadges,
-  fetchFeed,
+  fetchLand,
   fetchLands,
-  type FeedPage,
-  type LandsPage,
+  type LandResponse,
 } from "@/lib/api";
 
-const INITIAL_SORT = "recent" as const;
-
+/**
+ * Marketing landing — always shown at `/`. The app dashboard lives at `/home`
+ * and the in-app Header logo navigates back here so the landing is reachable
+ * at any time from inside the app.
+ */
 export default async function HomePage() {
-  const [landsResult, feedResult, badgesResult] = await Promise.allSettled([
-    fetchLands({ sort: INITIAL_SORT, limit: 20 }),
-    fetchFeed({ limit: 8 }),
-    fetchBadges(),
-  ]);
+  // Most recent land seeds the hero's PixiJS preview. Null when the API is
+  // unreachable or there are no lands yet (hero falls back to MiniIsland SVG).
+  let previewLand: LandResponse | null = null;
+  try {
+    const list = await fetchLands({ sort: "recent", limit: 1 });
+    const wallet = list.items[0]?.wallet;
+    if (wallet) previewLand = await fetchLand(wallet);
+  } catch {
+    previewLand = null;
+  }
 
-  const lands: LandsPage =
-    landsResult.status === "fulfilled"
-      ? landsResult.value
-      : { items: [], nextCursor: null };
-
-  const feed: FeedPage =
-    feedResult.status === "fulfilled"
-      ? feedResult.value
-      : { items: [], nextCursor: null };
-
-  const badgeNames: Record<string, string> =
-    badgesResult.status === "fulfilled"
-      ? Object.fromEntries(badgesResult.value.map((b) => [b.id, b.name]))
-      : {};
-
-  return (
-    <PageShell>
-      <div className="max-w-[1280px] mx-auto px-12 pt-6 pb-10 flex flex-col gap-3.5">
-        <Hero />
-        <LiveTicker initialItems={feed.items} badgeNames={badgeNames} />
-        <LandsExplorer
-          initialItems={lands.items}
-          initialNextCursor={lands.nextCursor}
-          initialSort={INITIAL_SORT}
-        />
-      </div>
-    </PageShell>
-  );
+  return <Landing previewLand={previewLand} />;
 }

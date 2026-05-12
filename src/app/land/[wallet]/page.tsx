@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/dashboard/page-shell";
@@ -15,7 +15,10 @@ import { StatChip } from "@/components/ui/stat-chip";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import { WalletAvatar } from "@/components/ui/wallet-avatar";
 import { useWallet } from "@/hooks/wallet";
-import { PLACED_OBJECTS } from "@/lib/mock-data";
+import { ApiError, fetchLand, type LandResponse } from "@/lib/api";
+import { API_BASE_URL } from "@/lib/api";
+import { BADGE_CATALOG, badgeAsset, isBadgeId } from "@/lib/badge-catalog";
+import { tileLabel } from "@/lib/mock-data";
 import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
 import type { LandObject } from "@/lib/types";
@@ -28,28 +31,81 @@ const ShareModal = dynamic(
 const ISLAND_W = 760;
 const ISLAND_H = 560;
 
+function shortAddress(addr: string): string {
+  if (addr.length < 10) return addr;
+  return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
+}
+
+function buildLandObjects(land: LandResponse): LandObject[] {
+  return land.placements.flatMap<LandObject>((p) => {
+    if (!isBadgeId(p.badgeId)) return [];
+    const def = BADGE_CATALOG[p.badgeId];
+    return [
+      {
+        id: `placed:${p.badgeId}:${p.x}:${p.y}`,
+        badgeId: p.badgeId,
+        gx: p.x,
+        gy: p.y,
+        hue: def.hue,
+        glyph: def.glyph,
+        type: def.type,
+        name: def.name,
+        protocol: def.protocol,
+        tile: tileLabel(p.x, p.y),
+        mintedAt: new Date().toISOString().slice(0, 10),
+      },
+    ];
+  });
+}
+
 export default function PublicLandPage() {
   const params = useParams<{ wallet: string }>();
   const search = useSearchParams();
   const { wallet: visitor } = useWallet();
   const [hovered, setHovered] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [land, setLand] = useState<LandResponse | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
-  const owner = decodeURIComponent(params?.wallet ?? "0xBEEF…0001");
+  const owner = decodeURIComponent(params?.wallet ?? "");
   const incomingRef = search?.get("ref");
-  const hoveredObj = hovered != null ? PLACED_OBJECTS[hovered] : null;
 
-  // Ref-link rule: a connected visitor earns credit with their wallet;
-  // otherwise pass through the incoming ref or default to the owner.
+  useEffect(() => {
+    if (!owner) return;
+    let cancelled = false;
+    setLand(null);
+    setNotFound(false);
+    void (async () => {
+      try {
+        const data = await fetchLand(owner);
+        if (!cancelled) setLand(data);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setNotFound(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [owner]);
+
+  const objects = useMemo(() => (land ? buildLandObjects(land) : []), [land]);
+  const hoveredObj = hovered != null ? (objects[hovered] ?? null) : null;
+
   const refForLink = useMemo(
-    () => visitor?.shortAddress ?? incomingRef ?? owner,
+    () => visitor?.shortAddress ?? incomingRef ?? shortAddress(owner),
     [visitor, incomingRef, owner],
   );
+
+  const score = land?.stats.score ?? 0;
+  const rank = land?.stats.rank ?? 0;
 
   return (
     <PageShell>
       <div className={`${UI_LAYOUT.pageContainer} pt-3 flex items-center gap-2 flex-wrap`}>
-        <span className={`${UI_TEXT.labelText} text-muted-neon`}>
+        <span className={`${UI_TEXT.labelText} text-muted-neon break-all`}>
           <span className="text-cyan-neon">onchain.me</span>/land/
           <span className="glow-m">{owner}</span>
         </span>
@@ -60,49 +116,81 @@ export default function PublicLandPage() {
         ) : null}
       </div>
 
-      <div className={`${UI_LAYOUT.pageContainer} grid gap-5 p-6 grid-cols-1 lg:grid-cols-[1fr_380px]`}>
+      <div className={`${UI_LAYOUT.pageContainer} grid gap-3 p-3 sm:gap-5 sm:p-6 grid-cols-1 md:grid-cols-[1fr_360px] lg:grid-cols-[1fr_380px]`}>
+        <div className="flex sm:hidden flex-col gap-2 col-span-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <WalletAvatar size="md" />
+            <div className="min-w-0 flex-1">
+              <div className="font-px glow-c text-[12px]">{shortAddress(owner)}</div>
+              <div className="font-silk text-[8px] text-muted-neon truncate">{owner} · OWNER</div>
+            </div>
+            <Button variant="cyan" size="sm" onClick={() => setShareOpen(true)}>
+              ↗ Share
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatChip label="OBJ" value={objects.length} color="cyan" size="sm" />
+            <StatChip label="PTS" value={score.toLocaleString()} color="yellow" size="sm" />
+            {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" /> : null}
+          </div>
+        </div>
         <MapFrame
           label="PUBLIC ISLAND"
           action={
-            <Button variant="cyan" onClick={() => setShareOpen(true)}>
-              ↗ Share the Land
-            </Button>
+            <div className="hidden sm:flex items-center gap-2">
+              <StatChip label="OBJ" value={objects.length} color="cyan" size="sm" />
+              <StatChip label="PTS" value={score.toLocaleString()} color="yellow" size="sm" />
+              {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" /> : null}
+              <Button variant="cyan" onClick={() => setShareOpen(true)}>
+                ↗ Share the Land
+              </Button>
+            </div>
           }
         >
-          <div className="absolute left-4 top-11 flex items-center gap-4 z-[4] flex-wrap">
+          <div className="hidden sm:flex absolute left-4 top-12 items-center gap-4 z-[4]">
             <div className="flex items-center gap-2.5">
               <WalletAvatar size="md" />
-              <div>
-                <div className="font-px glow-c text-[12px] 2xl:text-[16px]">SOMEONE.SOL</div>
-                <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon">
+              <div className="min-w-0">
+                <div className="font-px glow-c text-[12px] 2xl:text-[16px]">
+                  {shortAddress(owner)}
+                </div>
+                <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon truncate max-w-[260px]">
                   {owner} · OWNER
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <StatChip label="OBJ" value={PLACED_OBJECTS.length} color="cyan" />
-              <StatChip label="PTS" value="1,240" color="yellow" />
-            </div>
           </div>
 
-          <div className="relative h-[700px] flex items-center justify-center">
+          <div className="relative min-h-[300px] sm:h-[700px] flex items-center justify-center pt-8 sm:pt-0">
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}
-              objects={PLACED_OBJECTS}
+              scale={1.5}
+              objects={objects}
               hoveredIndex={hovered}
               onHoverObject={setHovered}
             />
             {hoveredObj ? (
-              <ObjectTooltip obj={hoveredObj} style={{ left: "52%", top: "18%" }} />
+              <ObjectTooltip
+                obj={hoveredObj}
+                className="left-2 top-2 sm:left-auto sm:top-12 sm:right-4"
+              />
+            ) : null}
+            {notFound ? (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="font-px text-[12px] text-muted-neon bg-bg-2 border-2 border-border-neon px-4 py-3">
+                  This wallet has no land yet.
+                </div>
+              </div>
             ) : null}
           </div>
         </MapFrame>
 
         <PlacedObjectsList
-          objects={PLACED_OBJECTS}
+          objects={objects}
           hovered={hovered}
           onHover={setHovered}
+          loading={!land && !notFound}
         />
       </div>
 
@@ -120,13 +208,15 @@ function PlacedObjectsList({
   objects,
   hovered,
   onHover,
+  loading,
 }: {
   objects: LandObject[];
   hovered: number | null;
   onHover: (i: number | null) => void;
+  loading: boolean;
 }) {
   return (
-    <Card padding="lg" className="flex-col min-h-[700px]">
+    <Card padding="lg" className="flex-col sm:min-h-[700px]">
       <div className="flex items-center mb-2.5">
         <span className={`${UI_TEXT.labelText} glow-c`}>PLACED OBJECTS</span>
         <Badge variant="tag-cyan" className="ml-2">
@@ -134,31 +224,55 @@ function PlacedObjectsList({
         </Badge>
       </div>
       <div className="flex flex-col gap-2 overflow-auto flex-1">
-        {objects.map((o, i) => (
-          <button
-            key={o.id}
-            type="button"
-            onMouseEnter={() => onHover(i)}
-            onMouseLeave={() => onHover(null)}
-            className={cn(
-              "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
-              hovered === i
-                ? "bg-panel-2 border-cyan-neon"
-                : "bg-bg-2 border-border-neon",
-            )}
-          >
-            <GlyphTile glyph={o.glyph} hue={o.hue} size="md" />
-            <div className="flex-1 min-w-0">
-              <div className="font-px text-[12px] 2xl:text-[16px] text-ink">{o.name}</div>
-              <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon mt-0.5">
-                {o.protocol} · TILE {o.tile}
-              </div>
-            </div>
-            <span className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon-2">
-              {o.mintedAt.slice(5)}
-            </span>
-          </button>
-        ))}
+        {loading ? (
+          <div className="font-pixel-body text-sm text-muted-neon p-2">Loading…</div>
+        ) : objects.length === 0 ? (
+          <div className="font-pixel-body text-sm text-muted-neon p-2">
+            No objects placed yet.
+          </div>
+        ) : (
+          objects.map((o, i) => {
+            // Prefer the rendered badge asset (animated WebP / static PNG)
+            // when we recognise the badgeId. Fall back to the legacy
+            // GlyphTile so any future custom-not-yet-catalogued objects
+            // still render with the protocol initial + hue.
+            const assetUrl =
+              o.badgeId && isBadgeId(o.badgeId)
+                ? badgeAsset(API_BASE_URL, o.badgeId)?.url ?? null
+                : null;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                onMouseEnter={() => onHover(i)}
+                onMouseLeave={() => onHover(null)}
+                className={cn(
+                  "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
+                  hovered === i
+                    ? "bg-panel-2 border-cyan-neon"
+                    : "bg-bg-2 border-border-neon",
+                )}
+              >
+                {assetUrl ? (
+                  <img
+                    src={assetUrl}
+                    alt={o.name}
+                    className="w-10 h-10 object-contain image-render-pixel border border-border-neon bg-bg-2"
+                    draggable={false}
+                  />
+                ) : (
+                  <GlyphTile glyph={o.glyph} hue={o.hue} size="md" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-px text-[12px] 2xl:text-[16px] text-ink">{o.name}</div>
+                  <div className="font-silk text-[8px] 2xl:text-[12px] text-muted-neon mt-0.5">
+                    {o.protocol} · TILE {o.tile}
+                  </div>
+                </div>
+              </button>
+            );
+          })
+        )}
       </div>
       <Separator variant="dashed" />
       <div className="font-pixel-body text-sm text-muted-neon">

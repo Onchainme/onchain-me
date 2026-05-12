@@ -9,10 +9,10 @@ const MAX_ITEMS = 8;
 
 interface LiveTickerProps {
   initialItems: FeedItem[];
-  badgeNames: Record<string, string>;
+  badgeNames?: Record<string, string>;
 }
 
-export function LiveTicker({ initialItems, badgeNames }: LiveTickerProps) {
+export function LiveTicker({ initialItems, badgeNames = {} }: LiveTickerProps) {
   const [items, setItems] = useState<FeedItem[]>(initialItems);
   const visibleRef = useRef(true);
 
@@ -49,7 +49,7 @@ export function LiveTicker({ initialItems, badgeNames }: LiveTickerProps) {
 
   if (items.length === 0) {
     return (
-      <div className="flex items-center gap-3.5 flex-wrap text-muted-neon">
+      <div className="flex items-start sm:items-center gap-2 sm:gap-3.5 flex-wrap text-muted-neon">
         <span className="font-silk text-[12px] glow-c tracking-widest">◉ LIVE</span>
         <span className="font-pixel-body text-base opacity-60">no recent activity</span>
       </div>
@@ -57,9 +57,9 @@ export function LiveTicker({ initialItems, badgeNames }: LiveTickerProps) {
   }
 
   return (
-    <div className="flex items-center gap-3.5 flex-wrap text-muted-neon">
-      <span className="font-silk text-[12px] glow-c tracking-widest">◉ LIVE</span>
-      <span className="font-pixel-body text-base">
+    <div className="flex items-start sm:items-center gap-2 sm:gap-3.5 flex-wrap text-muted-neon">
+      <span className="font-silk text-[12px] glow-c tracking-widest shrink-0">◉ LIVE</span>
+      <span className="font-pixel-body text-sm sm:text-base break-words min-w-0">
         {items.slice(0, MAX_ITEMS).map((event, i) => {
           const addrClass = i % 2 === 0 ? "glow-m" : "glow-c";
           const action = event.type === "mint" ? "minted" : "placed";
