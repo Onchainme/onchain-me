@@ -51,13 +51,17 @@ export function Inventory({
 
   return (
     <Card padding="default">
-      <div className="flex items-center mb-2.5">
-        <span className={cn(UI_TEXT.labelText, "text-muted-neon tracking-[0.14em]")}>
+      {/* Stack title + counts vertically so the counts never wrap onto the
+          INVENTORY title or get squished by `letter-spacing`. On narrow side
+          panels the previous single-row layout collapsed to "INVENTORY0 CLAIMED"
+          with no visible gap. */}
+      <div className="mb-2.5">
+        <div className={cn(UI_TEXT.labelText, "text-muted-neon tracking-[0.14em]")}>
           INVENTORY
-        </span>
-        <span className={cn(UI_TEXT.labelText, "glow-c ml-2")}>
+        </div>
+        <div className={cn(UI_TEXT.labelText, "glow-c mt-1 whitespace-nowrap")}>
           {claimedCount} CLAIMED · {eligibleCount} ELIGIBLE
-        </span>
+        </div>
       </div>
       <Tabs
         value={filter}
