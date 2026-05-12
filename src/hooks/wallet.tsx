@@ -22,6 +22,12 @@ import {
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import type { Wallet } from "@/lib/types";
+import { IS_MOBILE } from "@/lib/platform";
+import {
+  phantomConnect,
+  phantomDisconnect,
+  phantomSignMessage,
+} from "@/lib/phantom-mobile-bridge";
 
 interface WalletContextValue {
   wallet: Wallet | null;
@@ -157,20 +163,47 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setAuthError(null);
     setIsConnecting(true);
     try {
-      const adapter = getAdapter(walletName);
-      if (
-        adapter.readyState === WalletReadyState.NotDetected ||
-        adapter.readyState === WalletReadyState.Unsupported
-      ) {
-        throw new Error(`${WALLET_LABELS[walletName]} wallet not found. Please install it.`);
-      }
+      let walletAddress: string;
+      let signMessage: (msg: Uint8Array) => Promise<string>; // returns bs58 signature
 
-      await adapter.connect();
-      const walletAddress = adapter.publicKey?.toBase58();
-      if (!walletAddress) {
-        throw new Error(`${WALLET_LABELS[walletName]} connected but no public key was returned.`);
+      if (IS_MOBILE) {
+        if (walletName !== "phantom") {
+          throw new Error(
+            `${WALLET_LABELS[walletName]} mobile is not supported yet. Use Phantom.`,
+          );
+        }
+        const origin =
+          typeof window !== "undefined" ? window.location.origin : "https://localhost";
+        const { publicKey } = await phantomConnect(origin);
+        walletAddress = publicKey;
+        signMessage = async (msg) => {
+          const { signature } = await phantomSignMessage(msg);
+          return signature;
+        };
+      } else {
+        const adapter = getAdapter(walletName);
+        if (
+          adapter.readyState === WalletReadyState.NotDetected ||
+          adapter.readyState === WalletReadyState.Unsupported
+        ) {
+          throw new Error(`${WALLET_LABELS[walletName]} wallet not found. Please install it.`);
+        }
+
+        await adapter.connect();
+        const adapterAddress = adapter.publicKey?.toBase58();
+        if (!adapterAddress) {
+          throw new Error(`${WALLET_LABELS[walletName]} connected but no public key was returned.`);
+        }
+        activeAdapterRef.current = adapter;
+        walletAddress = adapterAddress;
+        signMessage = async (msg) => {
+          if (!adapter.signMessage) {
+            throw new Error(`${WALLET_LABELS[walletName]} does not support message signing.`);
+          }
+          const signed = await adapter.signMessage(msg);
+          return bs58.encode(normalizeSignedMessage(signed));
+        };
       }
-      activeAdapterRef.current = adapter;
 
       const nonceResponse = await fetch(getApiUrl("/api/v1/auth/nonce"), {
         method: "POST",
@@ -187,11 +220,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const message = nonceData.message || `Sign this message. Nonce: ${nonceData.nonce}`;
 
       const encodedMessage = new TextEncoder().encode(message);
-      if (!adapter.signMessage) {
-        throw new Error(`${WALLET_LABELS[walletName]} does not support message signing.`);
-      }
-      const signed = await adapter.signMessage(encodedMessage);
-      const signature = bs58.encode(normalizeSignedMessage(signed));
+      const signature = await signMessage(encodedMessage);
 
       const verifyResponse = await fetch(getApiUrl("/api/v1/auth/verify"), {
         method: "POST",
@@ -220,16 +249,22 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const disconnect = useCallback(async () => {
     setAuthError(null);
-    const adapters = Object.values(adaptersRef.current);
-    await Promise.all(
-      adapters.map(async (adapter) => {
-        if (!adapter) return;
-        try {
-          await adapter.disconnect();
-        } catch {}
-      }),
-    );
-    activeAdapterRef.current = null;
+    if (IS_MOBILE) {
+      try {
+        await phantomDisconnect();
+      } catch {}
+    } else {
+      const adapters = Object.values(adaptersRef.current);
+      await Promise.all(
+        adapters.map(async (adapter) => {
+          if (!adapter) return;
+          try {
+            await adapter.disconnect();
+          } catch {}
+        }),
+      );
+      activeAdapterRef.current = null;
+    }
     try {
       await fetch(getApiUrl("/api/v1/auth/logout"), {
         method: "POST",
@@ -241,6 +276,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const signTransaction = useCallback(
     async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
+      if (IS_MOBILE) {
+        // Phantom mobile signTransaction via deep links is doable but not yet
+        // wired — first mobile release is read-only beyond login.
+        throw new Error("Transaction signing on Android is not supported yet.");
+      }
       const adapter = activeAdapterRef.current as SignerWalletAdapter | null;
       if (!adapter) throw new Error("Wallet not connected");
       if (!adapter.signTransaction) {

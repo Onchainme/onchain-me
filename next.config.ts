@@ -1,9 +1,18 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  // Emit a self-contained server bundle so the production Docker image only
-  // needs Node + the compiled output (no node_modules at runtime).
-  output: "standalone",
-};
+// Mobile builds (Capacitor / Android) need a fully static export so the bundle
+// can be packed into the WebView. Trigger via `BUILD_TARGET=mobile next build`.
+// Web (Docker) keeps the standalone server bundle.
+const isMobile = process.env.BUILD_TARGET === "mobile";
+
+const nextConfig: NextConfig = isMobile
+  ? {
+      output: "export",
+      images: { unoptimized: true },
+      trailingSlash: true,
+    }
+  : {
+      output: "standalone",
+    };
 
 export default nextConfig;

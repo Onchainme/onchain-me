@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { MapFrame } from "@/components/dashboard/map-frame";
 import { ObjectTooltip } from "@/components/dashboard/object-tooltip";
@@ -58,8 +58,15 @@ function buildLandObjects(land: LandResponse): LandObject[] {
   });
 }
 
-export default function PublicLandPage() {
-  const params = useParams<{ wallet: string }>();
+export default function PublicLandPageWrapper() {
+  return (
+    <Suspense fallback={<PageShell>{null}</PageShell>}>
+      <PublicLandPage />
+    </Suspense>
+  );
+}
+
+function PublicLandPage() {
   const search = useSearchParams();
   const { wallet: visitor } = useWallet();
   const [hovered, setHovered] = useState<number | null>(null);
@@ -67,7 +74,7 @@ export default function PublicLandPage() {
   const [land, setLand] = useState<LandResponse | null>(null);
   const [notFound, setNotFound] = useState(false);
 
-  const owner = decodeURIComponent(params?.wallet ?? "");
+  const owner = decodeURIComponent(search?.get("wallet") ?? "");
   const incomingRef = search?.get("ref");
 
   useEffect(() => {
@@ -232,10 +239,6 @@ function PlacedObjectsList({
           </div>
         ) : (
           objects.map((o, i) => {
-            // Prefer the rendered badge asset (animated WebP / static PNG)
-            // when we recognise the badgeId. Fall back to the legacy
-            // GlyphTile so any future custom-not-yet-catalogued objects
-            // still render with the protocol initial + hue.
             const assetUrl =
               o.badgeId && isBadgeId(o.badgeId)
                 ? badgeAsset(API_BASE_URL, o.badgeId)?.url ?? null

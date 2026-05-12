@@ -25,7 +25,7 @@ function getPageKey(pathname: string | null): PageKey | null {
   if (pathname === "/") return "home";
   if (pathname.startsWith("/my-land")) return "my";
   if (pathname.startsWith("/edit")) return "edit";
-  if (pathname.startsWith("/land/")) return "public";
+  if (pathname.startsWith("/land")) return "public";
   return null;
 }
 
@@ -111,7 +111,7 @@ export function Header() {
 
   const openPublicLand = () => {
     if (!wallet) return;
-    router.push(`/land/${wallet.address}`);
+    router.push(`/land?wallet=${encodeURIComponent(wallet.address)}`);
   };
 
   const openExplorer = () => {

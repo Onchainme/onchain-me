@@ -38,7 +38,7 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
 
   return (
     <Link
-      href={`/land/${encodeURIComponent(land.address)}`}
+      href={`/land?wallet=${encodeURIComponent(land.address)}`}
       prefetch={false}
       className={cn("block h-full", className)}
     >

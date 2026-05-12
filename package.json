@@ -6,9 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "mobile:build": "BUILD_TARGET=mobile NEXT_PUBLIC_PLATFORM=mobile next build",
+    "mobile:sync": "npm run mobile:build && cap sync android",
+    "mobile:open": "cap open android",
+    "mobile:run": "npm run mobile:sync && cap run android"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.0",
     "@olduvai-jp/pixi-animated-webp": "^1.0.4",
     "@phosphor-icons/react": "^2.1.10",
     "@pixi/react": "^8.0.5",
@@ -33,6 +38,9 @@
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.3.3",
+    "@capacitor/cli": "^8.3.3",
+    "@capacitor/core": "^8.3.3",
     "@next/bundle-analyzer": "^16.2.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
