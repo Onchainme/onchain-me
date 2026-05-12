@@ -27,7 +27,7 @@ const ShareModal = dynamic(
   { ssr: false },
 );
 
-const ISLAND_W = 940;
+const ISLAND_W = 941;
 const ISLAND_H = 720;
 
 export default function MyLandPage() {
