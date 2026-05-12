@@ -36,6 +36,8 @@
   --font-display: var(--font-press-start), monospace;
   --font-body: var(--font-vt323), monospace;
   --font-label: var(--font-silkscreen), monospace;
+  --font-grotesk: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif;
+  --font-jetbrains: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
 }
 
 /* shadcn (Lyra) variable bindings */
@@ -168,6 +170,66 @@
 
 @utility font-pixel-body {
   font-family: var(--font-body);
+}
+
+/* ───────── Landing typography (mockup parity) ───────── */
+@utility font-grotesk {
+  font-family: var(--font-grotesk);
+  font-feature-settings: "ss01" on, "cv01" on;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility font-jetbrains {
+  font-family: var(--font-jetbrains);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Landing root opts out of the pixel rendering defaults so Grotesk /
+   JetBrains Mono stay sharp instead of getting jagged. Also paints the
+   mockup's fixed faint grid + radial fade across the viewport. */
+.landing-root,
+.landing-root * {
+  image-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+}
+.landing-root {
+  background-color: var(--color-bg);
+  position: relative;
+  isolation: isolate;
+}
+/* Smooth anchor scrolling only when the landing is mounted so app pages
+   keep their default snappy scroll. */
+/* html:has(.landing-root) {
+  scroll-behavior: smooth;
+} */
+/* Offset anchor targets so the sticky landing header doesn't cover the
+   destination heading after a smooth jump. */
+.landing-root [id] {
+  scroll-margin-top: 88px;
+}
+/* Faint 60×60 grid that fades out at the edges via a radial mask. Place on a
+   `fixed inset-0 -z-10 pointer-events-none` child div inside a parent that
+   has `isolation: isolate` (so the negative z stays bounded). Used by both
+   the landing shell and the app PageShell to share the same backdrop. */
+.bg-grid-fade {
+  background-image:
+    linear-gradient(to right, rgba(245, 230, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(245, 230, 255, 0.06) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse at center, #000 0%, #000 60%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, #000 60%, transparent 100%);
+}
+.landing-root h1,
+.landing-root h2,
+.landing-root h3,
+.landing-root h4 {
+  font-family: var(--font-grotesk);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: none;
 }
 
 /* ───────── Neon glow utilities ───────── */

@@ -22,7 +22,7 @@ type PageKey = "home" | "my" | "edit" | "public";
 
 function getPageKey(pathname: string | null): PageKey | null {
   if (!pathname) return null;
-  if (pathname === "/") return "home";
+  if (pathname === "/home") return "home";
   if (pathname.startsWith("/my-land")) return "my";
   if (pathname.startsWith("/edit")) return "edit";
   if (pathname.startsWith("/land/")) return "public";
@@ -131,7 +131,7 @@ export function Header() {
         </Link>
 
         <nav className="hidden sm:flex items-center gap-0.5 flex-1 ml-7">
-          <NavLink label="Home" href="/" active={current === "home"} disabled={false} prefetch />
+          <NavLink label="Home" href="/home" active={current === "home"} disabled={false} prefetch />
           <NavLink
             label="My Land"
             href="/my-land"
@@ -225,7 +225,7 @@ export function Header() {
           <nav className="flex flex-col">
             <NavLink
               label="Home"
-              href="/"
+              href="/home"
               active={current === "home"}
               disabled={false}
               prefetch
