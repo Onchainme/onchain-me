@@ -32,6 +32,12 @@ ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ARG NEXT_PUBLIC_SOLANA_CLUSTER
 ENV NEXT_PUBLIC_SOLANA_CLUSTER=${NEXT_PUBLIC_SOLANA_CLUSTER}
 
+# RPC the wallet adapter uses to submit signed mint transactions + confirm
+# them. Must match the cluster the backend builds blockhashes against —
+# mismatched values produce "Blockhash not found" simulation errors.
+ARG NEXT_PUBLIC_SOLANA_RPC_URL
+ENV NEXT_PUBLIC_SOLANA_RPC_URL=${NEXT_PUBLIC_SOLANA_RPC_URL}
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

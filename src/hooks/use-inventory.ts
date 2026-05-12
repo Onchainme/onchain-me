@@ -46,8 +46,15 @@ interface UseInventoryResult {
 }
 
 const PLACED_PREFIX = "placed:";
+// Default to mainnet public RPC. Local dev with `NEXT_PUBLIC_SOLANA_CLUSTER=devnet`
+// can opt into devnet via NEXT_PUBLIC_SOLANA_RPC_URL. Falling back to devnet
+// here caused mainnet mints to fail with "Blockhash not found" because the
+// backend builds tx on mainnet but frontend submitted to the wrong cluster.
 const SOLANA_RPC_URL =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??
+  (process.env.NEXT_PUBLIC_SOLANA_CLUSTER === "devnet"
+    ? "https://api.devnet.solana.com"
+    : "https://api.mainnet-beta.solana.com");
 
 function placedIdFor(inventoryId: string) {
   return `${PLACED_PREFIX}${inventoryId}:${Date.now()}`;
