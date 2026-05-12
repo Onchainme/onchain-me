@@ -44,7 +44,7 @@ export function LandingFaq() {
                 type="button"
                 onClick={() => setOpenIndex(open ? null : i)}
                 aria-expanded={open}
-                className="w-full text-left cursor-pointer py-7 flex justify-between items-center gap-6 font-grotesk text-[20px] sm:text-[22px] font-semibold text-ink"
+                className="w-full text-left cursor-pointer py-7 flex justify-between items-center gap-6 font-grotesk text-[20px] min-[640px]:text-[22px] font-semibold text-ink"
               >
                 <span>{item.q}</span>
                 <span

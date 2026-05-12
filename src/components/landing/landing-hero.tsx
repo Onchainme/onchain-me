@@ -17,17 +17,17 @@ interface LandingHeroProps {
 
 export function LandingHero({ previewLand = null }: LandingHeroProps) {
   return (
-    <section className="relative px-3 sm:px-12 pt-16 sm:pt-24 pb-16 sm:pb-28 overflow-hidden">
+    <section className="relative px-3 min-[640px]:px-12 pt-16 min-[640px]:pt-24 pb-16 min-[640px]:pb-28 overflow-hidden">
       <div className="absolute inset-x-0 -top-24 bottom-0 pointer-events-none [background:radial-gradient(ellipse_55%_50%_at_70%_40%,rgba(168,85,247,0.22),transparent_70%),radial-gradient(ellipse_40%_35%_at_30%_80%,rgba(34,211,238,0.12),transparent_70%)]" />
 
-      <div className="relative max-w-[1320px] mx-auto grid gap-12 sm:gap-18 lg:grid-cols-[1.1fr_1fr] items-center">
+      <div className="relative max-w-[1320px] mx-auto grid gap-12 min-[900px]:gap-18 min-[900px]:grid-cols-[1.1fr_1fr] items-center">
         <div>
-          <span className="inline-flex items-center gap-3 font-jetbrains text-[12px] sm:text-[14px] text-cyan-neon">
+          <span className="inline-flex items-center gap-3 font-jetbrains text-[12px] min-[640px]:text-[14px] text-cyan-neon">
             <span className="inline-block size-2.5 bg-cyan-neon shadow-[0_0_10px_var(--color-cyan-neon)]" />
             Solana · pixel identity layer
           </span>
 
-          <h1 className="font-grotesk text-[40px] xs:text-[52px] sm:text-[64px] md:text-[80px] font-bold leading-[1.02] mt-6 tracking-[-0.025em] text-balance">
+          <h1 className="font-grotesk text-[40px] xs:text-[52px] min-[768px]:text-[64px] min-[1280px]:text-[80px] font-bold leading-[1.02] mt-6 tracking-[-0.025em] text-balance">
             Your Solana wallet,
             <br />
             as a <span className="glow-m">3D land</span>
@@ -35,7 +35,7 @@ export function LandingHero({ previewLand = null }: LandingHeroProps) {
             you can <span className="glow-c">mint and share</span>.
           </h1>
 
-          <p className="font-grotesk text-[18px] sm:text-[22px] text-ink mt-7 max-w-[58ch] leading-[1.5]">
+          <p className="font-grotesk text-[18px] min-[768px]:text-[22px] text-ink mt-7 max-w-[58ch] leading-[1.5]">
             Connect a wallet. We scan every protocol you&apos;ve used and turn
             your history into a piece of pixel real estate — populated with the
             badges you earned{" "}
@@ -54,7 +54,7 @@ export function LandingHero({ previewLand = null }: LandingHeroProps) {
             </Button>
           </div>
 
-          <div className="flex flex-wrap gap-x-8 gap-y-4 mt-10 pt-7 border-t-2 border-border-neon font-jetbrains text-[12px] sm:text-[13px] text-muted-neon">
+          <div className="flex flex-wrap gap-x-8 gap-y-4 mt-10 pt-7 border-t-2 border-border-neon font-jetbrains text-[12px] min-[640px]:text-[13px] text-muted-neon">
             <div>
               Status&nbsp;&nbsp;
               <span className="glow-c">▶ Alpha</span>
@@ -124,8 +124,8 @@ function LandPreviewCard({ previewLand }: LandPreviewCardProps) {
         )}
       </div>
 
-      <div className="relative z-10 flex flex-col h-full p-6 sm:p-7 pointer-events-none">
-        <div className="flex justify-between items-center font-jetbrains text-[11px] sm:text-[12px] text-muted-neon [text-shadow:0_0_8px_rgba(10,6,18,0.9)]">
+      <div className="relative z-10 flex flex-col h-full p-6 min-[640px]:p-7 pointer-events-none">
+        <div className="flex justify-between items-center font-jetbrains text-[11px] min-[640px]:text-[12px] text-muted-neon [text-shadow:0_0_8px_rgba(10,6,18,0.9)]">
           <span>{headerLabel}</span>
           <span className="inline-flex items-center gap-2 text-green-neon">
             <span className="inline-block size-2 bg-green-neon shadow-[0_0_10px_var(--color-green-neon)]" />

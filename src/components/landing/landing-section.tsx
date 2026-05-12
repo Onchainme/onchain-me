@@ -26,11 +26,11 @@ export function LandingSection({
   return (
     <section
       id={id}
-      className={cn("relative py-20 sm:py-28", className)}
+      className={cn("relative py-20 min-[768px]:py-28", className)}
     >
-      <div className="max-w-[1320px] mx-auto px-3 sm:px-12">
+      <div className="max-w-[1320px] mx-auto px-3 min-[640px]:px-12">
         {(eyebrow || title || lead) && (
-          <div className="flex flex-wrap justify-between items-end gap-8 mb-12 sm:mb-16">
+          <div className="flex flex-wrap justify-between items-end gap-8 mb-12 min-[768px]:mb-16">
             <div className="max-w-[720px]">
               {eyebrow && (
                 <span className="inline-flex items-center gap-3 font-jetbrains text-[12px] text-cyan-neon">
@@ -39,13 +39,13 @@ export function LandingSection({
                 </span>
               )}
               {title && (
-                <h2 className="font-grotesk text-[34px] sm:text-[48px] md:text-[60px] font-bold leading-[1.05] mt-4 tracking-[-0.02em] text-balance">
+                <h2 className="font-grotesk text-[34px] min-[640px]:text-[48px] min-[1024px]:text-[60px] font-bold leading-[1.05] mt-4 tracking-[-0.02em] text-balance">
                   {title}
                 </h2>
               )}
             </div>
             {lead && (
-              <p className="font-grotesk text-[18px] sm:text-[22px] text-muted-neon max-w-[56ch] leading-[1.5] text-pretty">
+              <p className="font-grotesk text-[18px] min-[768px]:text-[22px] text-muted-neon max-w-[56ch] leading-[1.5] text-pretty">
                 {lead}
               </p>
             )}

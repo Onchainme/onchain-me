@@ -28,15 +28,15 @@ export function LandingProblem() {
       }
       lead="Years of swaps, mints and stakes — and the only proof is a 44-character address."
     >
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 min-[768px]:grid-cols-3">
         {PAINS.map((p) => (
           <div
             key={p.title}
-            className="border-2 border-border-neon bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)] p-7 sm:p-8 flex flex-col gap-4"
+            className="border-2 border-border-neon bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)] p-7 min-[768px]:p-8 flex flex-col gap-4"
           >
             {/* Pixel accent kept on Press Start 2P per spec. */}
             <div className="font-px text-[18px] glow-m leading-none">[ X ]</div>
-            <h3 className="font-grotesk text-[22px] sm:text-[24px] font-semibold leading-[1.15] text-ink">
+            <h3 className="font-grotesk text-[22px] min-[768px]:text-[24px] font-semibold leading-[1.15] text-ink">
               {p.title}
             </h3>
             <p className="font-grotesk text-[16px] text-muted-neon leading-[1.5]">

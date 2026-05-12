@@ -63,8 +63,8 @@ export function LandingSybil() {
       }
       lead="More badges, more activity, more days onchain — the harder a wallet is to fake. Query any wallet's humanity score with a single call."
     >
-      <div className="grid gap-7 lg:gap-15 lg:grid-cols-[1fr_1.05fr] items-stretch">
-        <div className="border-2 border-border-neon bg-bg-2 p-7 sm:p-8 flex flex-col gap-6">
+      <div className="grid gap-7 min-[900px]:gap-15 min-[900px]:grid-cols-[1fr_1.05fr] items-stretch">
+        <div className="border-2 border-border-neon bg-bg-2 p-7 min-[768px]:p-8 flex flex-col gap-6">
           <div className="flex justify-between items-center font-jetbrains text-[12px] text-muted-neon">
             <span>Humanity score</span>
             <span className="glow-c">0 → 100</span>
@@ -89,7 +89,7 @@ export function LandingSybil() {
             ))}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 mt-1">
+          <div className="grid gap-4 min-[640px]:grid-cols-2 mt-1">
             {USE_CASES.map((u) => (
               <div
                 key={u.num}

@@ -27,10 +27,10 @@ export function LandingHow() {
       title="Four steps from wallet to land."
       lead="No signup, no email, no custody. One signature mints the whole land."
     >
-      <div className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="relative grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <div
           aria-hidden
-          className="hidden lg:block absolute top-[46px] left-[64px] right-[64px] h-0.5 z-0 [background:repeating-linear-gradient(90deg,var(--color-cyan-neon)_0,var(--color-cyan-neon)_8px,transparent_8px,transparent_16px)] opacity-50"
+          className="hidden min-[1024px]:block absolute top-[46px] left-[64px] right-[64px] h-0.5 z-0 [background:repeating-linear-gradient(90deg,var(--color-cyan-neon)_0,var(--color-cyan-neon)_8px,transparent_8px,transparent_16px)] opacity-50"
         />
         {STEPS.map((s) => (
           <div

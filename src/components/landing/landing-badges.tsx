@@ -32,7 +32,7 @@ export function LandingBadges() {
       }
       lead="Rule-based, transparent, and minted as compressed NFTs at ~$0.001 each."
     >
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-5">
         {BADGES.map((b) => {
           const asset = badgeAsset(API_BASE_URL, b.badgeId);
           return (

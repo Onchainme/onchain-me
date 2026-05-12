@@ -20,7 +20,7 @@ export function LandingShell({ children, className }: LandingShellProps) {
         className="bg-grid-fade pointer-events-none fixed inset-0 -z-10"
       />
       <LandingHeader />
-      <main className="font-grotesk text-base sm:text-lg text-ink-2">
+      <main className="font-grotesk text-base min-[640px]:text-lg text-ink-2">
         {children}
       </main>
     </div>

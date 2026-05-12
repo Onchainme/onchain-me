@@ -25,8 +25,8 @@ const PRODUCT_LINKS = [
 export function LandingFooter() {
   return (
     <footer className="relative pt-16 pb-10">
-      <div className="max-w-[1320px] mx-auto px-3 sm:px-12">
-        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="max-w-[1320px] mx-auto px-3 min-[640px]:px-12">
+        <div className="grid gap-12 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <Link href="/" className="inline-flex items-center gap-3">
               <PixelLogo size={28} />
