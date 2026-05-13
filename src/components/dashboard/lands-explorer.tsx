@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,14 +12,15 @@ import {
   type LandsSort,
 } from "@/lib/api";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const SORTS: Array<[LandsSort, string]> = [
   ["recent", "Newest"],
   ["score", "Top Points"],
 ];
 
-// Bento grid: slot definitions for the 7 cards under the featured XL card.
+// Bento grid: slot definitions for the 7 cards above the trailing 3-card row
+// on page 1. Subsequent pages render a uniform 10-card grid.
 const BENTO: Array<{ area: string; size: "sm" | "md" | "lg" | "xl" }> = [
   { area: "a", size: "xl" },
   { area: "b", size: "md" },
@@ -44,12 +45,15 @@ export function LandsExplorer({
   const [sort, setSort] = useState<LandsSort>(initialSort);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ApiLand[]>(initialItems);
-  const [cursor, setCursor] = useState<string | null>(initialNextCursor);
+  // Cursor used to fetch each page; index = page number (0-based). Page 0
+  // always uses `null` (the API's "first page" sentinel).
+  const [cursorStack, setCursorStack] = useState<Array<string | null>>([null]);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const lastSortRef = useRef(initialSort);
+  const pageIndex = cursorStack.length - 1;
 
   // Static-export builds (Capacitor / Android) can't reach the API at build
   // time, so server-fetched initialItems come back empty. Fetch once on mount
@@ -72,24 +76,27 @@ export function LandsExplorer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refetch the first page when sort changes.
+  // Refetch page 1 whenever sort changes.
   useEffect(() => {
     if (lastSortRef.current === sort) return;
     lastSortRef.current = sort;
 
     const ctrl = new AbortController();
     setError(null);
-    startTransition(() => {
-      fetchLands({ sort, limit: PAGE_SIZE, signal: ctrl.signal })
-        .then((page) => {
-          setItems(page.items);
-          setCursor(page.nextCursor);
-        })
-        .catch((e: unknown) => {
-          if (ctrl.signal.aborted) return;
-          setError(e instanceof Error ? e.message : "Failed to load lands");
-        });
-    });
+    setLoading(true);
+    fetchLands({ sort, limit: PAGE_SIZE, signal: ctrl.signal })
+      .then((page) => {
+        setItems(page.items);
+        setNextCursor(page.nextCursor);
+        setCursorStack([null]);
+      })
+      .catch((e: unknown) => {
+        if (ctrl.signal.aborted) return;
+        setError(e instanceof Error ? e.message : "Failed to load lands");
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setLoading(false);
+      });
     return () => ctrl.abort();
   }, [sort]);
 
@@ -100,24 +107,43 @@ export function LandsExplorer({
   }, [items, query]);
 
   const summaries = useMemo(() => filtered.map(toLandSummary), [filtered]);
-  const bento = summaries.slice(0, BENTO.length);
-  const more = summaries.slice(BENTO.length);
+  // Page 1 uses bento (7 slots) + 3-card tail row; other pages render a flat
+  // 10-card grid.
+  const isFirstPage = pageIndex === 0;
+  const bento = isFirstPage ? summaries.slice(0, BENTO.length) : [];
+  const rest = isFirstPage ? summaries.slice(BENTO.length) : summaries;
 
-  const canLoadMore = !!cursor && !query;
+  const canNext = !!nextCursor && !query && !loading;
+  const canPrev = pageIndex > 0 && !query && !loading;
 
-  async function loadMore() {
-    if (!cursor || isLoadingMore) return;
-    setIsLoadingMore(true);
+  async function goToPage(cursor: string | null, nextStack: Array<string | null>) {
+    setLoading(true);
     setError(null);
     try {
-      const page = await fetchLands({ sort, cursor, limit: PAGE_SIZE });
-      setItems((prev) => mergeUnique(prev, page.items));
-      setCursor(page.nextCursor);
+      const page = await fetchLands({ sort, cursor: cursor ?? undefined, limit: PAGE_SIZE });
+      setItems(page.items);
+      setNextCursor(page.nextCursor);
+      setCursorStack(nextStack);
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load more");
+      setError(e instanceof Error ? e.message : "Failed to load page");
     } finally {
-      setIsLoadingMore(false);
+      setLoading(false);
     }
+  }
+
+  function goNext() {
+    if (!canNext || nextCursor == null) return;
+    void goToPage(nextCursor, [...cursorStack, nextCursor]);
+  }
+
+  function goPrev() {
+    if (!canPrev) return;
+    const prevStack = cursorStack.slice(0, -1);
+    const prevCursor = prevStack[prevStack.length - 1] ?? null;
+    void goToPage(prevCursor, prevStack);
   }
 
   return (
@@ -129,7 +155,7 @@ export function LandsExplorer({
               <button
                 type="button"
                 onClick={() => setSort(k)}
-                disabled={isPending}
+                disabled={loading}
               >
                 {label}
               </button>
@@ -149,11 +175,11 @@ export function LandsExplorer({
         <div className="font-silk text-[12px] text-magenta-neon">{error}</div>
       ) : null}
 
-      {isPending ? (
+      {loading ? (
         <div className="font-silk text-[12px] text-muted-neon">LOADING…</div>
       ) : null}
 
-      {!isPending && summaries.length === 0 ? (
+      {!loading && summaries.length === 0 ? (
         <div className="font-silk text-[12px] text-muted-neon py-8 text-center">
           NO LANDS FOUND
         </div>
@@ -172,37 +198,27 @@ export function LandsExplorer({
         </div>
       ) : null}
 
-      {more.length > 0 ? (
-        <div className="grid gap-3.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-          {more.map((land, i) => (
-            <LandCard key={`${land.address}-more-${i}`} land={land} size="sm" />
+      {rest.length > 0 ? (
+        <div className="grid gap-3.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {rest.map((land, i) => (
+            <LandCard key={`${land.address}-rest-${i}`} land={land} size="sm" />
           ))}
         </div>
       ) : null}
 
-      {canLoadMore ? (
-        <div className="flex justify-center pt-2">
-          <Button
-            variant="outline"
-            onClick={loadMore}
-            disabled={isLoadingMore}
-          >
-            {isLoadingMore ? "LOADING…" : "LOAD MORE"}
+      {!query && (canPrev || canNext || pageIndex > 0) ? (
+        <div className="flex items-center justify-center gap-3.5 pt-2">
+          <Button variant="outline" onClick={goPrev} disabled={!canPrev}>
+            ← PREV
+          </Button>
+          <span className="font-silk text-[12px] text-muted-neon tracking-widest">
+            PAGE {pageIndex + 1}
+          </span>
+          <Button variant="outline" onClick={goNext} disabled={!canNext}>
+            NEXT →
           </Button>
         </div>
       ) : null}
     </div>
   );
-}
-
-function mergeUnique(prev: ApiLand[], next: ApiLand[]): ApiLand[] {
-  const seen = new Set(prev.map((p) => p.wallet));
-  const merged = [...prev];
-  for (const item of next) {
-    if (!seen.has(item.wallet)) {
-      merged.push(item);
-      seen.add(item.wallet);
-    }
-  }
-  return merged;
 }

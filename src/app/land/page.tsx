@@ -14,7 +14,6 @@ import { Separator } from "@/components/ui/separator";
 import { StatChip } from "@/components/ui/stat-chip";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import { WalletAvatar } from "@/components/ui/wallet-avatar";
-import { useWallet } from "@/hooks/wallet";
 import { ApiError, fetchLand, type LandResponse } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/api";
 import { BADGE_CATALOG, badgeAsset, isBadgeId } from "@/lib/badge-catalog";
@@ -68,14 +67,12 @@ export default function PublicLandPageWrapper() {
 
 function PublicLandPage() {
   const search = useSearchParams();
-  const { wallet: visitor } = useWallet();
   const [hovered, setHovered] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [land, setLand] = useState<LandResponse | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   const owner = decodeURIComponent(search?.get("wallet") ?? "");
-  const incomingRef = search?.get("ref");
 
   useEffect(() => {
     if (!owner) return;
@@ -120,11 +117,6 @@ function PublicLandPage() {
     };
   }, [hovered]);
 
-  const refForLink = useMemo(
-    () => visitor?.shortAddress ?? incomingRef ?? shortAddress(owner),
-    [visitor, incomingRef, owner],
-  );
-
   const score = land?.stats.score ?? 0;
   const rank = land?.stats.rank ?? 0;
 
@@ -135,11 +127,6 @@ function PublicLandPage() {
           <span className="text-cyan-neon">onchain.me</span>/land/
           <span className="glow-m">{owner}</span>
         </span>
-        {incomingRef ? (
-          <span className={`${UI_TEXT.labelTextSm} text-muted-neon`}>
-            · REF: <span className="glow-c">{incomingRef}</span>
-          </span>
-        ) : null}
       </div>
 
       <div className={`${UI_LAYOUT.pageContainer} grid gap-3 p-3 sm:gap-5 sm:p-6 grid-cols-1 md:grid-cols-[1fr_360px] lg:grid-cols-[1fr_380px]`}>
@@ -235,7 +222,6 @@ function PublicLandPage() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         ownerAddress={owner}
-        refAddress={refForLink}
       />
     </PageShell>
   );

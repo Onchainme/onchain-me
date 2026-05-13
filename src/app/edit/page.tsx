@@ -54,6 +54,8 @@ export default function EditPage() {
     claimedCount,
     error: mintError,
     busyBadgeId,
+    mintStage,
+    mintBatchProgress,
     loading,
     lastScanAt,
     mintConfig,
@@ -155,6 +157,7 @@ export default function EditPage() {
         onClose={() => setMintSingle(null)}
         onConfirm={mintItem}
         mintPriceLamports={mintConfig?.mintPriceLamports ?? null}
+        mintStage={mintStage}
       />
       <MintAllModal
         items={inventory}
@@ -162,12 +165,13 @@ export default function EditPage() {
         onClose={() => setMintAllOpen(false)}
         onConfirm={mintAll}
         mintPriceLamports={mintConfig?.mintPriceLamports ?? null}
+        mintStage={mintStage}
+        mintBatchProgress={mintBatchProgress}
       />
       <ShareModal
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         ownerAddress={address}
-        refAddress={address}
       />
     </PageShell>
   );

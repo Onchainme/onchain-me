@@ -14,6 +14,8 @@ import { GlyphTile } from "@/components/ui/glyph-tile";
 import type { InventoryItem } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/api";
 import { badgeAsset, isBadgeId } from "@/lib/badge-catalog";
+import { MintProgress } from "@/components/modals/mint-progress";
+import type { MintStage } from "@/hooks/use-inventory";
 
 interface MintSingleModalProps {
   item: InventoryItem | null;
@@ -21,6 +23,8 @@ interface MintSingleModalProps {
   onConfirm: (id: string) => Promise<void>;
   /** Per-mint price in lamports (0 = sponsored / free). null while loading. */
   mintPriceLamports: number | null;
+  /** Current mint stage from the inventory hook; drives the progress UI. */
+  mintStage: MintStage;
 }
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
@@ -33,7 +37,13 @@ function formatMintPrice(lamports: number | null): string {
   return `${trimmed} SOL`;
 }
 
-export function MintSingleModal({ item, onClose, onConfirm, mintPriceLamports }: MintSingleModalProps) {
+export function MintSingleModal({
+  item,
+  onClose,
+  onConfirm,
+  mintPriceLamports,
+  mintStage,
+}: MintSingleModalProps) {
   const [pending, setPending] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -49,27 +59,40 @@ export function MintSingleModal({ item, onClose, onConfirm, mintPriceLamports }:
       ? badgeAsset(API_BASE_URL, item.badgeId)?.url ?? null
       : null;
 
+  const inFlight =
+    pending &&
+    mintStage !== "idle" &&
+    mintStage !== "done" &&
+    mintStage !== "error";
+  // Don't let the user click out / hit Esc while the wallet round-trip is
+  // mid-flight — closing the modal while signing/sending leaves the hook in
+  // a partially-set state and is the kind of thing that previously made mints
+  // "disappear" until a hard refresh.
+  const lockClose = pending && inFlight;
+
   return (
     <Dialog
       open={!!item}
       onOpenChange={(o) => {
-        if (!o && pending) return;
+        if (!o && lockClose) return;
         if (!o) onClose();
       }}
     >
       <DialogContent
         accent="magenta"
         className="max-w-[calc(100vw-24px)] sm:max-w-[440px]"
-        showCloseButton={!pending}
+        showCloseButton={!lockClose}
         onPointerDownOutside={(e) => {
-          if (pending) e.preventDefault();
+          if (lockClose) e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
-          if (pending) e.preventDefault();
+          if (lockClose) e.preventDefault();
         }}
       >
         <DialogHeader>
-          <DialogTitle>{pending ? "MINT IN PROGRESS" : "MINT NFT"}</DialogTitle>
+          <DialogTitle>
+            {pending ? "MINT IN PROGRESS" : "MINT NFT"}
+          </DialogTitle>
         </DialogHeader>
         {item ? (
           <>
@@ -100,24 +123,19 @@ export function MintSingleModal({ item, onClose, onConfirm, mintPriceLamports }:
               <div className="flex-1" />
               <span className="font-px glow-c text-xs">{formatMintPrice(mintPriceLamports)}</span>
             </div>
-            {pending ? (
-              <div className="rounded border border-cyan-neon/50 bg-bg-2 px-3 py-2.5 font-silk text-[11px] text-muted-neon leading-relaxed">
-                Approve the transaction in your wallet, then we confirm on Solana and pull the new
-                asset into your inventory. You do not need to refresh the page.
-              </div>
-            ) : null}
+            {pending ? <MintProgress stage={mintStage} /> : null}
             {localError ? (
               <p className="font-silk text-[10px] text-red-300 border border-red-500/40 bg-red-500/10 px-2 py-1.5 break-words">
                 {localError}
               </p>
             ) : null}
             <DialogFooter>
-              <Button variant="ghost" onClick={onClose} disabled={pending}>
-                Cancel
+              <Button variant="ghost" onClick={onClose} disabled={lockClose}>
+                {pending && mintStage === "error" ? "Close" : "Cancel"}
               </Button>
               <Button
                 variant="primary"
-                disabled={pending}
+                disabled={pending && mintStage !== "error"}
                 onClick={() => {
                   void (async () => {
                     setLocalError(null);
@@ -133,7 +151,11 @@ export function MintSingleModal({ item, onClose, onConfirm, mintPriceLamports }:
                   })();
                 }}
               >
-                {pending ? "MINT PENDING…" : "✓ Confirm Mint"}
+                {pending && mintStage !== "error"
+                  ? labelForStage(mintStage)
+                  : pending && mintStage === "error"
+                    ? "↻ Retry"
+                    : "✓ Confirm Mint"}
               </Button>
             </DialogFooter>
           </>
@@ -141,4 +163,23 @@ export function MintSingleModal({ item, onClose, onConfirm, mintPriceLamports }:
       </DialogContent>
     </Dialog>
   );
+}
+
+function labelForStage(stage: MintStage): string {
+  switch (stage) {
+    case "preparing":
+      return "BUILDING TX…";
+    case "signing":
+      return "WAITING FOR WALLET…";
+    case "sending":
+      return "BROADCASTING…";
+    case "confirming":
+      return "CONFIRMING ON-CHAIN…";
+    case "indexing":
+      return "INDEXING…";
+    case "done":
+      return "DONE";
+    default:
+      return "MINT PENDING…";
+  }
 }

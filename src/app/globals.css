@@ -365,6 +365,34 @@
   }
 }
 
+/* Live-ticker marquee. The track holds two identical copies of the content
+   side-by-side; sliding by -50% lands on the start of the duplicate, giving
+   a seamless loop. Duration is set inline via --ticker-duration so the speed
+   scales with content length and feels constant regardless of item count. */
+.ticker-track {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  animation: ticker-scroll var(--ticker-duration, 40s) linear infinite;
+  will-change: transform;
+}
+.ticker-mask:hover .ticker-track {
+  animation-play-state: paused;
+}
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
+}
+
 /* Bento grid for the lands explorer.
    Mobile: 2 columns, simple stack.
    Desktop (sm = 1024px+): the curated bento layout with a featured XL card. */
