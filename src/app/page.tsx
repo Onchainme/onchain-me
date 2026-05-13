@@ -11,11 +11,12 @@ import {
  * at any time from inside the app.
  */
 export default async function HomePage() {
-  // Most recent land seeds the hero's PixiJS preview. Null when the API is
-  // unreachable or there are no lands yet (hero falls back to MiniIsland SVG).
+  // Top-scoring land seeds the hero's PixiJS preview so it's always populated.
+  // Null when the API is unreachable or there are no lands yet (hero falls back
+  // to MiniIsland SVG).
   let previewLand: LandResponse | null = null;
   try {
-    const list = await fetchLands({ sort: "recent", limit: 1 });
+    const list = await fetchLands({ sort: "score", limit: 1 });
     const wallet = list.items[0]?.wallet;
     if (wallet) previewLand = await fetchLand(wallet);
   } catch {

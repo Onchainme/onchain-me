@@ -44,12 +44,18 @@ export function LiveTicker({ initialItems, badgeNames = {} }: LiveTickerProps) {
       }
     };
 
+    // Static-export builds bake an empty feed into the HTML because the API is
+    // unreachable from the build host. Fire one tick immediately so the ticker
+    // populates on first paint instead of waiting a full poll interval.
+    if (initialItems.length === 0) void tick();
+
     const id = setInterval(tick, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       ctrl.abort();
       clearInterval(id);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const shown = useMemo(() => items.slice(0, MAX_ITEMS), [items]);

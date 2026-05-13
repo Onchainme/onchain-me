@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "mobile:build": "BUILD_TARGET=mobile dotenv -e .env.mobile -- next build",
+    "mobile:sync": "npm run mobile:build && cap sync android",
+    "mobile:open": "cap open android",
+    "mobile:run": "npm run mobile:sync && cap run android",
+    "mobile:apk": "npm run mobile:sync && cd android && ./gradlew assembleDebug && cd .. && echo 'APK: android/app/build/outputs/apk/debug/app-debug.apk'"
   },
   "dependencies": {
     "@olduvai-jp/pixi-animated-webp": "^1.0.4",
@@ -33,11 +38,16 @@
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.3.3",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.3.3",
+    "@capacitor/core": "^8.3.3",
     "@next/bundle-analyzer": "^16.2.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",

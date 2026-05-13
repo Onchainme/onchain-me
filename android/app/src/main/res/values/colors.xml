@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App brand background. Keep in sync with the `background` CSS variable
+         in src/app/globals.css. -->
+    <color name="onchainBackground">#0A0612</color>
+
+    <!-- Capacitor template defaults — left here so the references in styles.xml
+         resolve. Tweak if/when we ship a proper Material colour scheme. -->
+    <color name="colorPrimary">#0A0612</color>
+    <color name="colorPrimaryDark">#0A0612</color>
+    <color name="colorAccent">#FF00FF</color>
+</resources>

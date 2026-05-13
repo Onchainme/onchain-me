@@ -33,6 +33,14 @@ extend({ Container, Graphics, Sprite });
 
 const BADGE_SPRITE_SIZE = 40;
 
+// Touch devices fire pointerenter/leave bracketed around a tap, which would
+// flash the tooltip on and off. Gate hover callbacks on devices that actually
+// support hovering — taps go through onObjectClick instead.
+function hasHoverCapability(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.matchMedia("(hover: hover)").matches;
+}
+
 /**
  * Animated WebP playback is handled by `@olduvai-jp/pixi-animated-webp`. The
  * package's side-effect import (top of file) registers an Assets loader that
@@ -608,12 +616,14 @@ function AnimatedBadgeSprite({
         sprite.y = positionRef.current.y + 2;
         sprite.eventMode = "static";
         sprite.cursor = "pointer";
-        sprite.on("pointerenter", () =>
-          callbacksRef.current.onHoverObject?.(callbacksRef.current.index),
-        );
-        sprite.on("pointerleave", () =>
-          callbacksRef.current.onHoverObject?.(null),
-        );
+        sprite.on("pointerenter", () => {
+          if (!hasHoverCapability()) return;
+          callbacksRef.current.onHoverObject?.(callbacksRef.current.index);
+        });
+        sprite.on("pointerleave", () => {
+          if (!hasHoverCapability()) return;
+          callbacksRef.current.onHoverObject?.(null);
+        });
         sprite.on("pointertap", () =>
           callbacksRef.current.onObjectClick?.(callbacksRef.current.obj),
         );
@@ -749,8 +759,12 @@ function BadgePlate({
           height={BADGE_SPRITE_SIZE}
           eventMode={interactive ? "static" : "passive"}
           cursor={onObjectClick ? "pointer" : "default"}
-          onPointerEnter={() => onHoverObject?.(index)}
-          onPointerLeave={() => onHoverObject?.(null)}
+          onPointerEnter={() => {
+            if (hasHoverCapability()) onHoverObject?.(index);
+          }}
+          onPointerLeave={() => {
+            if (hasHoverCapability()) onHoverObject?.(null);
+          }}
           onPointerTap={() => onObjectClick?.(obj)}
         />
       ) : null}
@@ -805,8 +819,12 @@ function BuildingShapeSprite({
       draw={draw}
       eventMode={interactive ? "static" : "passive"}
       cursor={onObjectClick ? "pointer" : "default"}
-      onPointerEnter={() => onHoverObject?.(index)}
-      onPointerLeave={() => onHoverObject?.(null)}
+      onPointerEnter={() => {
+        if (hasHoverCapability()) onHoverObject?.(index);
+      }}
+      onPointerLeave={() => {
+        if (hasHoverCapability()) onHoverObject?.(null);
+      }}
       onPointerTap={() => onObjectClick?.(obj)}
     />
   );

@@ -18,16 +18,19 @@ interface ShareModalProps {
 
 export function ShareModal({ open, onClose, ownerAddress }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
-  // Use the live origin so the share link works on localhost, app.onchainme.to,
-  // or any future custom domain. SSR fallback is the canonical apex.
-  const [origin, setOrigin] = useState<string>("https://onchainme.to");
+  // Share links must resolve in any browser, so we can't use window.location
+  // on mobile (origin there is the Capacitor-synthetic https://mobile.onchainme.to
+  // which doesn't exist publicly). Use the live origin on web, fall back to the
+  // canonical web origin everywhere else (mobile, SSR).
+  const [origin, setOrigin] = useState<string>("https://app.onchainme.to");
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin);
-    }
+    if (typeof window === "undefined") return;
+    if (process.env.NEXT_PUBLIC_PLATFORM === "mobile") return;
+    setOrigin(window.location.origin);
   }, []);
   const link = useMemo(
-    () => `${origin}/land/${ownerAddress}`,
+    () =>
+      `${origin}/land?wallet=${encodeURIComponent(ownerAddress)}`,
     [origin, ownerAddress],
   );
 
