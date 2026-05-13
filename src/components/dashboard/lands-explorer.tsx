@@ -65,7 +65,7 @@ export function LandsExplorer({
       fetchLands({ sort: initialSort, limit: PAGE_SIZE, signal: ctrl.signal })
         .then((page) => {
           setItems(page.items);
-          setCursor(page.nextCursor);
+          setNextCursor(page.nextCursor);
         })
         .catch((e: unknown) => {
           if (ctrl.signal.aborted) return;
