@@ -22,7 +22,7 @@ type PageKey = "home" | "my" | "edit" | "public";
 
 function getPageKey(pathname: string | null): PageKey | null {
   if (!pathname) return null;
-  if (pathname === "/") return "home";
+  if (pathname === "/home") return "home";
   if (pathname.startsWith("/my-land")) return "my";
   if (pathname.startsWith("/edit")) return "edit";
   if (pathname.startsWith("/land")) return "public";
@@ -87,13 +87,18 @@ function NavLink({
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isConnected, wallet, disconnect, openConnectModal } = useWallet();
+  const { isConnected, isSessionReady, wallet, disconnect, openConnectModal } = useWallet();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const current = getPageKey(pathname);
-  const needsWallet = !isConnected;
+  /** Only treat as logged out after the cookie session check finishes. */
+  const needsWallet = isSessionReady && !isConnected;
 
   const guard = (href: string) => (e: MouseEvent) => {
+    if (!isSessionReady) {
+      e.preventDefault();
+      return;
+    }
     if (needsWallet) {
       e.preventDefault();
       openConnectModal();
@@ -131,12 +136,12 @@ export function Header() {
         </Link>
 
         <nav className="hidden sm:flex items-center gap-0.5 flex-1 ml-7">
-          <NavLink label="Home" href="/" active={current === "home"} disabled={false} prefetch />
+          <NavLink label="Home" href="/home" active={current === "home"} disabled={false} prefetch />
           <NavLink
             label="My Land"
             href="/my-land"
             active={current === "my"}
-            disabled={needsWallet}
+            disabled={!isSessionReady || needsWallet}
             prefetch={false}
             onGuard={guard("/my-land")}
           />
@@ -144,7 +149,7 @@ export function Header() {
             label="Edit"
             href="/edit"
             active={current === "edit"}
-            disabled={needsWallet}
+            disabled={!isSessionReady || needsWallet}
             prefetch={false}
             onGuard={guard("/edit")}
           />
@@ -152,7 +157,7 @@ export function Header() {
 
         <div className="flex-1 sm:hidden" />
 
-        {isConnected && wallet ? (
+        {isSessionReady && isConnected && wallet ? (
           <div className="hidden sm:block">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -201,6 +206,8 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        ) : !isSessionReady ? (
+          <div className="hidden sm:block font-silk text-[10px] text-muted-neon px-2">Session…</div>
         ) : (
           <div className="hidden sm:block">
             <Button variant="primary" onClick={openConnectModal}>
@@ -225,7 +232,7 @@ export function Header() {
           <nav className="flex flex-col">
             <NavLink
               label="Home"
-              href="/"
+              href="/home"
               active={current === "home"}
               disabled={false}
               prefetch
@@ -236,7 +243,7 @@ export function Header() {
               label="My Land"
               href="/my-land"
               active={current === "my"}
-              disabled={needsWallet}
+              disabled={!isSessionReady || needsWallet}
               prefetch={false}
               onGuard={guard("/my-land")}
               className="border-b-0 px-2 py-2.5"
@@ -246,7 +253,7 @@ export function Header() {
               label="Edit"
               href="/edit"
               active={current === "edit"}
-              disabled={needsWallet}
+              disabled={!isSessionReady || needsWallet}
               prefetch={false}
               onGuard={guard("/edit")}
               className="border-b-0 px-2 py-2.5"
@@ -255,7 +262,7 @@ export function Header() {
           </nav>
 
           <div className="border-t-2 border-border-neon pt-3">
-            {isConnected && wallet ? (
+            {isSessionReady && isConnected && wallet ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 px-1">
                   <WalletAvatar size="sm" />
@@ -307,6 +314,8 @@ export function Header() {
                   <LogOut className="size-3" /> Disconnect
                 </Button>
               </div>
+            ) : !isSessionReady ? (
+              <div className="font-silk text-[10px] text-muted-neon text-center py-1">Checking session…</div>
             ) : (
               <Button
                 variant="primary"

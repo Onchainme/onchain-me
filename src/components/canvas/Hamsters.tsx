@@ -38,18 +38,18 @@ export function Hamsters({ gridSize, project }: HamstersProps) {
   const islandBottomY = frontTile.y + TILE_H + (SIDE_LAYERS * BLOCK_H);
 
   // 3. Масштаб: делаем их меньше (0.2 - 0.25), чтобы они влезли под остров
-  const HAMSTER_SCALE = 1; 
+  const HAMSTER_SCALE = 1;
 
   // 4. Смещение вверх (Y_OFFSET): поднимаем их так, чтобы головы зашли ПОД блоки
-  const Y_OFFSET = -5; 
+  const Y_OFFSET = -5;
 
   return (
     <pixiContainer>
       <pixiSprite
         texture={textures["/sprites/ham-brown-px.png"]}
-        x={cx - 97} 
+        x={cx - 97}
         y={islandBottomY + 11 + Y_OFFSET}
-        anchor={0.5} 
+        anchor={0.5}
         scale={HAMSTER_SCALE}
       />
 

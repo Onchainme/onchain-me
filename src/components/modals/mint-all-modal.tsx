@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,7 @@ interface MintAllModalProps {
   items: InventoryItem[];
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
   /** Per-mint price in lamports (0 = sponsored / free). null while loading. */
   mintPriceLamports: number | null;
 }
@@ -37,16 +38,42 @@ function formatMintPriceTotal(lamportsPer: number | null, count: number): string
 
 export function MintAllModal({ items, open, onClose, onConfirm, mintPriceLamports }: MintAllModalProps) {
   const eligible = items.filter((i) => i.state === "eligible");
+  const [pending, setPending] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setLocalError(null);
+      setPending(false);
+    }
+  }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
-      <DialogContent accent="cyan" className="max-w-[calc(100vw-24px)] sm:max-w-[480px]">
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o && pending) return;
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent
+        accent="cyan"
+        className="max-w-[calc(100vw-24px)] sm:max-w-[480px]"
+        showCloseButton={!pending}
+        onPointerDownOutside={(e) => {
+          if (pending) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (pending) e.preventDefault();
+        }}
+      >
         <DialogHeader>
-          <DialogTitle>MINT ALL · ELIGIBLE</DialogTitle>
+          <DialogTitle>{pending ? "MINT IN PROGRESS" : "MINT ALL · ELIGIBLE"}</DialogTitle>
         </DialogHeader>
         <DialogDescription>
-          {eligible.length} eligible object{eligible.length === 1 ? "" : "s"} will
-          be minted in a single batch.
+          {pending
+            ? "One wallet approval per badge. We confirm each mint and refresh inventory when the batch finishes — no manual reload."
+            : `${eligible.length} eligible object${eligible.length === 1 ? "" : "s"} will be minted in a single batch.`}
         </DialogDescription>
         <div className="border-2 border-border-neon p-2 bg-bg-2 max-h-[40vh] overflow-y-auto">
           {eligible.length === 0 ? (
@@ -92,8 +119,6 @@ export function MintAllModal({ items, open, onClose, onConfirm, mintPriceLamport
           )}
         </div>
         <Separator variant="dashed" />
-        {/* Cost = mintPriceLamports × eligible.length. Wallet shows the exact
-            amount during Phantom approval (1 prompt per badge for now). */}
         <div className="flex items-center">
           <span className="font-silk text-[12px] text-muted-neon">YOUR COST</span>
           <div className="flex-1" />
@@ -101,19 +126,34 @@ export function MintAllModal({ items, open, onClose, onConfirm, mintPriceLamport
             {formatMintPriceTotal(mintPriceLamports, eligible.length)}
           </span>
         </div>
+        {localError ? (
+          <p className="font-silk text-[10px] text-red-300 border border-red-500/40 bg-red-500/10 px-2 py-1.5 break-words">
+            {localError}
+          </p>
+        ) : null}
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
           <Button
             variant="primary"
+            disabled={eligible.length === 0 || pending}
             onClick={() => {
-              onConfirm();
-              onClose();
+              void (async () => {
+                setLocalError(null);
+                setPending(true);
+                try {
+                  await onConfirm();
+                  onClose();
+                } catch (err) {
+                  setLocalError(err instanceof Error ? err.message : "Mint batch failed");
+                } finally {
+                  setPending(false);
+                }
+              })();
             }}
-            disabled={eligible.length === 0}
           >
-            ✨ Mint All ({eligible.length})
+            {pending ? "MINT PENDING…" : `✨ Mint All (${eligible.length})`}
           </Button>
         </DialogFooter>
       </DialogContent>
