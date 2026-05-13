@@ -75,18 +75,13 @@ export function ShareModal({
             {copied ? "COPIED" : "COPY"}
           </Button>
         </div>
-        <div className="flex flex-col xs:flex-row gap-2.5">
-          <Button
-            variant="pixel"
-            className="flex-1 bg-black border-white"
-            onClick={tweet}
-          >
-            𝕏 SHARE ON X
-          </Button>
-          <Button variant="primary" className="flex-1" onClick={copy}>
-            COPY LINK
-          </Button>
-        </div>
+        <Button
+          variant="pixel"
+          className="w-full bg-black border-white"
+          onClick={tweet}
+        >
+          𝕏 SHARE ON X
+        </Button>
         <Separator variant="dashed" />
         <Card accent="violet" padding="sm">
           <div className="font-silk glow-v text-[12px] mb-1">REFERRAL LOGIC</div>
