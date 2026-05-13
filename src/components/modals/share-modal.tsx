@@ -30,7 +30,7 @@ export function ShareModal({ open, onClose, ownerAddress }: ShareModalProps) {
   }, []);
   const link = useMemo(
     () =>
-      `${origin}/land?wallet=${encodeURIComponent(ownerAddress)} : ""}`,
+      `${origin}/land?wallet=${encodeURIComponent(ownerAddress)}`,
     [origin, ownerAddress],
   );
 
