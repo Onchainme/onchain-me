@@ -101,6 +101,25 @@ function PublicLandPage() {
   const objects = useMemo(() => (land ? buildLandObjects(land) : []), [land]);
   const hoveredObj = hovered != null ? (objects[hovered] ?? null) : null;
 
+  // Tap-outside to close the tooltip. Canvas taps and PlacedObjectsList row
+  // taps have their own handlers — exempt them so they aren't doubly handled.
+  useEffect(() => {
+    if (hovered === null) return;
+    function handler(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("canvas")) return;
+      if (target?.closest("[data-tooltip-zone='list']")) return;
+      setHovered(null);
+    }
+    const t = setTimeout(() => {
+      document.addEventListener("click", handler);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("click", handler);
+    };
+  }, [hovered]);
+
   const refForLink = useMemo(
     () => visitor?.shortAddress ?? incomingRef ?? shortAddress(owner),
     [visitor, incomingRef, owner],
@@ -176,11 +195,22 @@ function PublicLandPage() {
               objects={objects}
               hoveredIndex={hovered}
               onHoverObject={setHovered}
+              onObjectClick={(obj) => {
+                const idx = objects.findIndex((o) => o.id === obj.id);
+                if (idx < 0) return;
+                setHovered((prev) => (prev === idx ? null : idx));
+              }}
+              onTileClick={() => setHovered(null)}
             />
             {hoveredObj ? (
               <ObjectTooltip
                 obj={hoveredObj}
                 className="left-2 top-2 sm:left-auto sm:top-12 sm:right-4"
+                onClose={
+                  process.env.NEXT_PUBLIC_PLATFORM === "mobile"
+                    ? () => setHovered(null)
+                    : undefined
+                }
               />
             ) : null}
             {notFound ? (
@@ -223,7 +253,7 @@ function PlacedObjectsList({
   loading: boolean;
 }) {
   return (
-    <Card padding="lg" className="flex-col sm:min-h-[700px]">
+    <Card padding="lg" className="flex-col sm:min-h-[700px]" data-tooltip-zone="list">
       <div className="flex items-center mb-2.5">
         <span className={`${UI_TEXT.labelText} glow-c`}>PLACED OBJECTS</span>
         <Badge variant="tag-cyan" className="ml-2">
@@ -249,6 +279,7 @@ function PlacedObjectsList({
                 type="button"
                 onMouseEnter={() => onHover(i)}
                 onMouseLeave={() => onHover(null)}
+                onClick={() => onHover(hovered === i ? null : i)}
                 className={cn(
                   "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
                   hovered === i
@@ -279,7 +310,7 @@ function PlacedObjectsList({
       </div>
       <Separator variant="dashed" />
       <div className="font-pixel-body text-sm text-muted-neon">
-        Hover row → object pulses on map.
+        Tap a row or an object → details appear.
       </div>
     </Card>
   );

@@ -79,8 +79,14 @@ function b64Decode(s: string): Uint8Array {
 }
 
 function identity(): IdentityFields {
+  // Wallets surface identityUri to the user during connect ("Connect to X?").
+  // On mobile window.location.origin is the Capacitor-synthetic
+  // https://mobile.onchainme.to — show the canonical web origin instead.
+  const isMobile = process.env.NEXT_PUBLIC_PLATFORM === "mobile";
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://onchain.me";
+    !isMobile && typeof window !== "undefined"
+      ? window.location.origin
+      : "https://app.onchainme.to";
   return {
     identityName: "Onchain.me",
     identityUri: origin,

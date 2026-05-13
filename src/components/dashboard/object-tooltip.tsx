@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { X } from "lucide-react";
 import type { LandObject } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -11,9 +12,13 @@ interface ObjectTooltipProps {
   obj: LandObject;
   style?: CSSProperties;
   className?: string;
+  /** When provided, renders a close button (used on mobile where hover-leave
+   *  doesn't fire). The card stays pointer-events-none so taps elsewhere on
+   *  it still pass through to the canvas behind. */
+  onClose?: () => void;
 }
 
-export function ObjectTooltip({ obj, style, className }: ObjectTooltipProps) {
+export function ObjectTooltip({ obj, style, className, onClose }: ObjectTooltipProps) {
   // Same image-vs-glyph fallback the inventory grid and placed-objects list
   // use: render the actual rendered badge asset when we recognise the badge
   // id, fall back to the legacy GlyphTile otherwise.
@@ -31,6 +36,16 @@ export function ObjectTooltip({ obj, style, className }: ObjectTooltipProps) {
       )}
       style={style}
     >
+      {onClose ? (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="pointer-events-auto absolute top-1 right-1 w-7 h-7 grid place-items-center text-muted-neon hover:text-magenta-neon active:text-magenta-neon"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      ) : null}
       <div className="flex items-center gap-2.5">
         {assetUrl ? (
           <img

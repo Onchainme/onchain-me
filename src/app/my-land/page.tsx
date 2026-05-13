@@ -50,6 +50,25 @@ export default function MyLandPage() {
     }
   }, [isConnected, isSessionReady, openConnectModal, router]);
 
+  // Tap-outside to close the tooltip. The tooltip itself is pointer-events-none
+  // so it never receives the click; we just exempt the Pixi canvas (taps there
+  // are handled by onObjectClick/onTileClick) and close on anything else.
+  useEffect(() => {
+    if (hovered === null) return;
+    function handler(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("canvas")) return;
+      setHovered(null);
+    }
+    const t = setTimeout(() => {
+      document.addEventListener("click", handler);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("click", handler);
+    };
+  }, [hovered]);
+
   useEffect(() => {
     if (!wallet?.address) return;
     const ctrl = new AbortController();
@@ -95,7 +114,7 @@ export default function MyLandPage() {
       ? "FAILED TO LOAD LAND DATA"
       : placed.length === 0
         ? "NO PLACED OBJECTS YET"
-        : `HOVER A BUILDING FOR DETAILS · CLAIMED ${claimedCount} · ELIGIBLE ${eligibleCount}`;
+        : `TAP A BUILDING FOR DETAILS · CLAIMED ${claimedCount} · ELIGIBLE ${eligibleCount}`;
 
   return (
     <PageShell>
@@ -117,6 +136,12 @@ export default function MyLandPage() {
               objects={placed}
               hoveredIndex={hovered}
               onHoverObject={setHovered}
+              onObjectClick={(obj) => {
+                const idx = placed.findIndex((p) => p.id === obj.id);
+                if (idx < 0) return;
+                setHovered((prev) => (prev === idx ? null : idx));
+              }}
+              onTileClick={() => setHovered(null)}
             />
             {isLoading ? (
               <div className="absolute inset-0 z-20 grid place-items-center bg-[rgba(10,6,18,0.35)]">
@@ -124,7 +149,15 @@ export default function MyLandPage() {
               </div>
             ) : null}
             {hoveredObj ? (
-              <ObjectTooltip obj={hoveredObj} className="left-2 top-2 sm:left-auto sm:right-4 sm:top-12" />
+              <ObjectTooltip
+                obj={hoveredObj}
+                className="left-2 top-2 sm:left-auto sm:right-4 sm:top-12"
+                onClose={
+                  process.env.NEXT_PUBLIC_PLATFORM === "mobile"
+                    ? () => setHovered(null)
+                    : undefined
+                }
+              />
             ) : null}
             <div className={`${UI_TEXT.labelText} absolute bottom-2 left-2 sm:bottom-4 sm:left-4 text-muted-neon max-w-[calc(100%-1rem)] truncate`}>
               {helperText}
