@@ -167,7 +167,6 @@ export default function EditPage() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         ownerAddress={address}
-        refAddress={address}
       />
     </PageShell>
   );

@@ -177,7 +177,6 @@ export default function MyLandPage() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         ownerAddress={fullAddress}
-        refAddress={fullAddress}
       />
     </PageShell>
   );

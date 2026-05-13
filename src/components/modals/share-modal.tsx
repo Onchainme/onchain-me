@@ -4,28 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 
 interface ShareModalProps {
   open: boolean;
   onClose: () => void;
   ownerAddress: string;
-  refAddress?: string | null;
 }
 
-export function ShareModal({
-  open,
-  onClose,
-  ownerAddress,
-  refAddress,
-}: ShareModalProps) {
+export function ShareModal({ open, onClose, ownerAddress }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   // Use the live origin so the share link works on localhost, app.onchainme.to,
   // or any future custom domain. SSR fallback is the canonical apex.
@@ -36,9 +27,8 @@ export function ShareModal({
     }
   }, []);
   const link = useMemo(
-    () =>
-      `${origin}/land/${ownerAddress}${refAddress ? `?ref=${refAddress}` : ""}`,
-    [origin, ownerAddress, refAddress],
+    () => `${origin}/land/${ownerAddress}`,
+    [origin, ownerAddress],
   );
 
   const copy = async () => {
@@ -62,9 +52,6 @@ export function ShareModal({
         <DialogHeader>
           <DialogTitle>SHARE THE LAND</DialogTitle>
         </DialogHeader>
-        <DialogDescription>
-          Every new wallet that connects via your link earns you ref credit.
-        </DialogDescription>
         <div className="flex flex-col xs:flex-row items-stretch gap-1.5">
           <Input
             readOnly
@@ -82,17 +69,6 @@ export function ShareModal({
         >
           𝕏 SHARE ON X
         </Button>
-        <Separator variant="dashed" />
-        <Card accent="violet" padding="sm">
-          <div className="font-silk glow-v text-[12px] mb-1">REFERRAL LOGIC</div>
-          <div className="font-pixel-body text-base text-ink-2 leading-snug">
-            <span className="text-green-neon">●</span> Visitor connected → ref =
-            visitor wallet
-            <br />
-            <span className="text-yellow-neon">●</span> Not connected → ref = land
-            owner
-          </div>
-        </Card>
       </DialogContent>
     </Dialog>
   );
