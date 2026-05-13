@@ -18,7 +18,7 @@ const INITIAL_SORT = "recent" as const;
  */
 export default async function AppHomePage() {
   const [landsResult, feedResult] = await Promise.allSettled([
-    fetchLands({ sort: INITIAL_SORT, limit: 20 }),
+    fetchLands({ sort: INITIAL_SORT, limit: 10 }),
     fetchFeed({ limit: 8 }),
   ]);
 

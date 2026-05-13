@@ -23,6 +23,22 @@ import {
 } from "@/lib/api";
 import { useWallet } from "@/hooks/wallet";
 
+/**
+ * Linear stages a single mint walks through. The UI renders this as a stepper
+ * so users see real-time progress instead of a generic "MINT PENDING…" spinner
+ * (which previously left them assuming the flow was hung and reloading the
+ * page mid-flight).
+ */
+export type MintStage =
+  | "idle"
+  | "preparing"
+  | "signing"
+  | "sending"
+  | "confirming"
+  | "indexing"
+  | "done"
+  | "error";
+
 interface UseInventoryResult {
   inventory: InventoryItem[];
   placed: LandObject[];
@@ -39,6 +55,10 @@ interface UseInventoryResult {
   loading: boolean;
   error: string | null;
   busyBadgeId: string | null;
+  /** Current stage of the active mint (single or batch). */
+  mintStage: MintStage;
+  /** Batch progress for mintAll; null when minting a single item. */
+  mintBatchProgress: { current: number; total: number } | null;
   /** ISO timestamp of the most recent wallet scan, null if never scanned. */
   lastScanAt: string | null;
   /** Per-mint price in lamports + creator destination. null while loading. */
@@ -178,6 +198,10 @@ export function useInventory(): UseInventoryResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyBadgeId, setBusyBadgeId] = useState<string | null>(null);
+  const [mintStage, setMintStage] = useState<MintStage>("idle");
+  const [mintBatchProgress, setMintBatchProgress] = useState<
+    { current: number; total: number } | null
+  >(null);
   const [lastScanAt, setLastScanAt] = useState<string | null>(null);
   const [mintConfig, setMintConfig] = useState<MintConfig | null>(null);
 
@@ -335,6 +359,7 @@ export function useInventory(): UseInventoryResult {
 
       setBusyBadgeId(badgeId);
       setError(null);
+      setMintStage("preparing");
       try {
         console.log(`[mint] ${badgeId}: requesting tx from backend...`);
         const { transaction } = await requestMintSingle(badgeId);
@@ -349,7 +374,10 @@ export function useInventory(): UseInventoryResult {
         // wallet adapter must add the second signature before submit.
         // (Sponsored mode falls under the same path — the tx still has the
         // user as fee payer, just without the transfer ix.)
+        setMintStage("signing");
         const signed = await signTransaction(tx);
+
+        setMintStage("sending");
         const connection = connectionRef.current!;
         let sig: string;
         try {
@@ -363,6 +391,7 @@ export function useInventory(): UseInventoryResult {
         }
         console.log(`[mint] ${badgeId}: sent, signature=${sig}`);
 
+        setMintStage("confirming");
         const latest = await connection.getLatestBlockhash("confirmed");
         try {
           await connection.confirmTransaction(
@@ -382,24 +411,61 @@ export function useInventory(): UseInventoryResult {
         const signatureB58 =
           typeof sig === "string" ? sig : bs58.encode(sig as unknown as Uint8Array);
 
+        setMintStage("indexing");
+
         // Backend confirm — retry briefly: tx may still be propagating to RPC the
         // backend uses, even after we've seen it confirmed locally.
-        let lastErr: unknown = null;
+        let backendOk = false;
         for (let i = 0; i < 6; i++) {
           try {
             await confirmMint(signatureB58, badgeId);
             console.log(`[mint] ${badgeId}: backend confirmed (attempt ${i + 1})`);
-            lastErr = null;
+            backendOk = true;
             break;
           } catch (err) {
-            lastErr = err;
             const status = err instanceof ApiError ? err.status : 0;
-            console.warn(`[mint] ${badgeId}: backend confirm attempt ${i + 1} failed (status ${status})`, err);
+            console.warn(
+              `[mint] ${badgeId}: backend confirm attempt ${i + 1} failed (status ${status})`,
+              err,
+            );
             if (status !== 422) break;
             await new Promise((r) => setTimeout(r, 1500));
           }
         }
-        if (lastErr) throw lastErr;
+
+        // Indexing fallback: the cNFT is already on-chain at this point. Even
+        // if `/mint/confirm` keeps failing (transient backend issue, slow RPC,
+        // 5xx), we can still pull the claim by re-running on-chain import via
+        // DAS and polling the inventory until the badge shows up as claimed.
+        // Previously a confirmMint failure silently threw, leaving the user
+        // staring at a stuck "MINT PENDING…" until a hard refresh re-imported.
+        if (!backendOk) {
+          console.warn(`[mint] ${badgeId}: backend confirm did not succeed, falling back to on-chain import + inventory poll`);
+          try {
+            await importCnfts();
+          } catch (err) {
+            console.warn(`[mint] ${badgeId}: importCnfts fallback failed`, err);
+          }
+          for (let i = 0; i < 12; i++) {
+            try {
+              const inv = await fetchInventory(walletAddress);
+              if (inv.claimed.some((c) => c.badgeId === badgeId)) {
+                backendOk = true;
+                console.log(`[mint] ${badgeId}: claim appeared via DAS import (poll ${i + 1})`);
+                break;
+              }
+            } catch (err) {
+              console.warn(`[mint] ${badgeId}: inventory poll ${i + 1} failed`, err);
+            }
+            await new Promise((r) => setTimeout(r, 2500));
+          }
+        }
+
+        if (!backendOk) {
+          throw new Error(
+            "Mint confirmed on-chain but indexing is delayed. It will appear shortly — pull to refresh.",
+          );
+        }
 
         // Next refresh must run on-chain import again — otherwise we only
         // imported cNFTs once per wallet session and new mints stay invisible
@@ -412,8 +478,11 @@ export function useInventory(): UseInventoryResult {
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("onchainme:mint", { detail: { badgeId } }));
         }
+
+        setMintStage("done");
       } catch (err) {
         console.error(`[mint] ${badgeId}: FAILED`, err);
+        setMintStage("error");
         throw err;
       } finally {
         setBusyBadgeId(null);
@@ -426,6 +495,8 @@ export function useInventory(): UseInventoryResult {
     async (inventoryId: string) => {
       const item = inventory.find((i) => i.id === inventoryId);
       if (!item || item.state !== "eligible") return;
+      setMintBatchProgress(null);
+      setMintStage("idle");
       try {
         await mintBadge(item.badgeId);
         await refresh();
@@ -440,9 +511,12 @@ export function useInventory(): UseInventoryResult {
 
   const mintAll = useCallback(async () => {
     const eligible = inventory.filter((i) => i.state === "eligible");
+    setMintStage("idle");
+    setMintBatchProgress({ current: 0, total: eligible.length });
     try {
-      for (const item of eligible) {
-        await mintBadge(item.badgeId);
+      for (let i = 0; i < eligible.length; i++) {
+        setMintBatchProgress({ current: i + 1, total: eligible.length });
+        await mintBadge(eligible[i].badgeId);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "mint batch failed");
@@ -517,6 +591,8 @@ export function useInventory(): UseInventoryResult {
     loading,
     error,
     busyBadgeId,
+    mintStage,
+    mintBatchProgress,
     lastScanAt,
     mintConfig,
   };
