@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
     namespace = "me.onchain.app"
@@ -40,6 +41,12 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+
+    // Mobile Wallet Adapter — used by OnchainMwaPlugin to talk to Seed Vault
+    // on Seeker and any MWA-compatible wallet (Phantom, Solflare, Backpack)
+    // on regular Android.
+    implementation "com.solanamobile:mobile-wallet-adapter-clientlib-ktx:$mwaClientlibVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
 }
 
 apply from: 'capacitor.build.gradle'

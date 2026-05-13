@@ -15,7 +15,7 @@ import {
   type MessageSignerWalletAdapter,
   type SignerWalletAdapter,
 } from "@solana/wallet-adapter-base";
-import type { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
 import {
   PhantomWalletAdapter,
@@ -24,10 +24,12 @@ import {
 import type { Wallet } from "@/lib/types";
 import { IS_MOBILE } from "@/lib/platform";
 import {
-  phantomConnect,
-  phantomDisconnect,
-  phantomSignMessage,
-} from "@/lib/phantom-mobile-bridge";
+  mwaConnect,
+  mwaDisconnect,
+  mwaSignMessage,
+  mwaSignTransactions,
+  type MwaSession,
+} from "@/lib/mwa";
 
 interface WalletContextValue {
   wallet: Wallet | null;
@@ -117,6 +119,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [isConnectOpen, setConnectOpen] = useState(false);
   const adaptersRef = useRef<Partial<Record<WalletProviderName, MessageSignerWalletAdapter>>>({});
   const activeAdapterRef = useRef<MessageSignerWalletAdapter | null>(null);
+  const mwaSessionRef = useRef<MwaSession | null>(null);
 
   const getAdapter = useCallback((walletName: WalletProviderName) => {
     const existing = adaptersRef.current[walletName];
@@ -167,19 +170,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       let signMessage: (msg: Uint8Array) => Promise<string>; // returns bs58 signature
 
       if (IS_MOBILE) {
-        if (walletName !== "phantom") {
-          throw new Error(
-            `${WALLET_LABELS[walletName]} mobile is not supported yet. Use Phantom.`,
-          );
-        }
-        const origin =
-          typeof window !== "undefined" ? window.location.origin : "https://localhost";
-        const { publicKey } = await phantomConnect(origin);
-        walletAddress = publicKey;
-        signMessage = async (msg) => {
-          const { signature } = await phantomSignMessage(msg);
-          return signature;
-        };
+        // The MWA bottom sheet shows every installed wallet, so the user-picked
+        // walletName from the modal is informational only. Seed Vault on Seeker
+        // appears in the sheet automatically.
+        const session = await mwaConnect();
+        walletAddress = session.publicKeyB58;
+        mwaSessionRef.current = session;
+        signMessage = async (msg) => mwaSignMessage(msg, session);
       } else {
         const adapter = getAdapter(walletName);
         if (
@@ -251,8 +248,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setAuthError(null);
     if (IS_MOBILE) {
       try {
-        await phantomDisconnect();
+        await mwaDisconnect();
       } catch {}
+      mwaSessionRef.current = null;
     } else {
       const adapters = Object.values(adaptersRef.current);
       await Promise.all(
@@ -277,9 +275,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const signTransaction = useCallback(
     async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
       if (IS_MOBILE) {
-        // Phantom mobile signTransaction via deep links is doable but not yet
-        // wired — first mobile release is read-only beyond login.
-        throw new Error("Transaction signing on Android is not supported yet.");
+        const session = mwaSessionRef.current;
+        if (!session) throw new Error("Wallet not connected");
+        const serialised = tx.serialize({ requireAllSignatures: false }) as Uint8Array;
+        const [signedBytes] = await mwaSignTransactions([serialised], session);
+        if (tx instanceof Transaction) {
+          return Transaction.from(signedBytes) as T;
+        }
+        return VersionedTransaction.deserialize(signedBytes) as T;
       }
       const adapter = activeAdapterRef.current as SignerWalletAdapter | null;
       if (!adapter) throw new Error("Wallet not connected");

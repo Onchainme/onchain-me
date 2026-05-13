@@ -11,6 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useWallet, type WalletProviderName } from "@/hooks/wallet";
 import { Button } from "@/components/ui/button";
+import { IS_MOBILE } from "@/lib/platform";
 
 type WalletOption = {
   id: WalletProviderName;
@@ -23,6 +24,16 @@ const WALLET_OPTIONS: WalletOption[] = [
   { id: "backpack", label: "Backpack", iconSrc: "/wallets/backpack.jpg" },
   { id: "solflare", label: "Solflare", iconSrc: "/wallets/solflare.jpg" },
 ];
+
+// Extra entry shown only on Android — represents Seed Vault on Seeker (and any
+// other MWA-only wallet). On mobile every option routes to the same MWA
+// authorize call, so the `id` is arbitrary; we use "phantom" because the
+// wallet-hook's mobile branch ignores it.
+const SEEDVAULT_OPTION: WalletOption = {
+  id: "phantom",
+  label: "Seed Vault",
+  iconSrc: "/wallets/seed-vault.jpg",
+};
 
 function WalletOptionIcon({ wallet }: { wallet: WalletOption }) {
   const [isBroken, setIsBroken] = useState(false);
@@ -62,9 +73,9 @@ export function ConnectWalletModal() {
           Required for My Land & Edit. We use your signature to authenticate.
         </DialogDescription>
         <div className="flex flex-col gap-3">
-          {WALLET_OPTIONS.map((wallet) => (
+          {(IS_MOBILE ? [...WALLET_OPTIONS, SEEDVAULT_OPTION] : WALLET_OPTIONS).map((wallet) => (
             <Button
-              key={wallet.id}
+              key={wallet.label}
               type="button"
               variant="outline"
               className="h-auto w-full justify-between p-3"

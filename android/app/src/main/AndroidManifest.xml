@@ -24,17 +24,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Phantom Deep Link callback. Phantom Mobile redirects to
-                 onchainme://phantom/<action>?... after connect / signMessage /
-                 disconnect; the listener in src/hooks/phantom-mobile.tsx parses
-                 the encrypted payload. -->
-            <intent-filter android:autoVerify="false">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="onchainme" />
-            </intent-filter>
-
         </activity>
 
         <provider

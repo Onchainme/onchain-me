@@ -51,6 +51,27 @@ export function LandsExplorer({
 
   const lastSortRef = useRef(initialSort);
 
+  // Static-export builds (Capacitor / Android) can't reach the API at build
+  // time, so server-fetched initialItems come back empty. Fetch once on mount
+  // to recover. Web SSR populates initialItems → this branch is skipped.
+  useEffect(() => {
+    if (initialItems.length > 0) return;
+    const ctrl = new AbortController();
+    startTransition(() => {
+      fetchLands({ sort: initialSort, limit: PAGE_SIZE, signal: ctrl.signal })
+        .then((page) => {
+          setItems(page.items);
+          setCursor(page.nextCursor);
+        })
+        .catch((e: unknown) => {
+          if (ctrl.signal.aborted) return;
+          setError(e instanceof Error ? e.message : "Failed to load lands");
+        });
+    });
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Refetch the first page when sort changes.
   useEffect(() => {
     if (lastSortRef.current === sort) return;
