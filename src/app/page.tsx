@@ -7,12 +7,30 @@ import {
   type StatsResponse,
 } from "@/lib/api";
 
+import { MobileEntry } from "./mobile-entry";
+
+// `process.env.NEXT_PUBLIC_*` is inlined at build time, so this constant
+// becomes a literal `true`/`false` after compilation and Webpack drops the
+// dead branch from the bundle (the Landing imports stay because they're
+// top-level, but their runtime cost is gone on mobile).
+const IS_MOBILE_BUILD = process.env.NEXT_PUBLIC_PLATFORM === "mobile";
+
 /**
- * Marketing landing — always shown at `/`. The app dashboard lives at `/home`
- * and the in-app Header logo navigates back here so the landing is reachable
- * at any time from inside the app.
+ * Root route (`/`).
+ *
+ * Web (apex onchainme.to): renders the marketing landing. The app's Header
+ * logo links back here so the landing is reachable from inside the app.
+ *
+ * Mobile (Capacitor static export): there is no landing in the APK — bounce
+ * straight to the dashboard at `/home`. The `proxy` that normally redirects
+ * `/` → `/home` on app.onchainme.to does not run inside the WebView, so we
+ * redirect from the page itself.
  */
 export default async function HomePage() {
+  if (IS_MOBILE_BUILD) {
+    return <MobileEntry />;
+  }
+
   // Top-scoring land seeds the hero's PixiJS preview so it's always populated.
   // Stats power the LandingStats section. Both null on API failure — components
   // fall back to their static placeholders.
