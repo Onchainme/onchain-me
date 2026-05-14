@@ -34,7 +34,12 @@ export default function MyLandPage() {
   const { isConnected, isSessionReady, wallet, openConnectModal } = useWallet();
   const router = useRouter();
   const [placed, setPlaced] = useState<LandObject[]>([]);
-  const [hovered, setHovered] = useState<number | null>(0);
+  // Two independent indices so hover (visual ring) and click (info tooltip)
+  // don't fight each other. Hover only drives the cyan ring around the
+  // badge sprite; clicking a badge is what opens its ObjectTooltip. Tap the
+  // same badge or an empty tile to close.
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -84,7 +89,8 @@ export default function MyLandPage() {
         setInventory(inv);
         const mapped = land.placements.map((placement, index) => placementToLandObject(placement, index));
         setPlaced(mapped);
-        setHovered(mapped.length > 0 ? 0 : null);
+        setSelectedIdx(null);
+        setHovered(null);
       })
       .catch((e: unknown) => {
         if (ctrl.signal.aborted) return;
@@ -102,7 +108,7 @@ export default function MyLandPage() {
 
   if (!isSessionReady || !isConnected) return null;
 
-  const hoveredObj = hovered != null ? placed[hovered] : null;
+  const hoveredObj = selectedIdx != null ? placed[selectedIdx] : null;
   const shortAddress = wallet?.shortAddress ?? MY_SHORT;
   const fullAddress = wallet?.address ?? shortAddress;
   const eligibleCount = inventory?.eligible.length ?? 0;
@@ -139,9 +145,10 @@ export default function MyLandPage() {
               onObjectClick={(obj) => {
                 const idx = placed.findIndex((p) => p.id === obj.id);
                 if (idx < 0) return;
-                setHovered((prev) => (prev === idx ? null : idx));
+                // Toggle: re-click same badge to close, click another to switch.
+                setSelectedIdx((prev) => (prev === idx ? null : idx));
               }}
-              onTileClick={() => setHovered(null)}
+              onTileClick={() => setSelectedIdx(null)}
             />
             {isLoading ? (
               <div className="absolute inset-0 z-20 grid place-items-center bg-[rgba(10,6,18,0.35)]">
@@ -152,11 +159,10 @@ export default function MyLandPage() {
               <ObjectTooltip
                 obj={hoveredObj}
                 className="left-2 top-2 sm:left-auto sm:right-4 sm:top-12"
-                onClose={
-                  process.env.NEXT_PUBLIC_PLATFORM === "mobile"
-                    ? () => setHovered(null)
-                    : undefined
-                }
+                // Tooltip is now click-driven everywhere (not only mobile), so
+                // always render the close button. Lets desktop users dismiss
+                // without aiming at empty grass.
+                onClose={() => setSelectedIdx(null)}
               />
             ) : null}
             <div className={`${UI_TEXT.labelText} absolute bottom-2 left-2 sm:bottom-4 sm:left-4 text-muted-neon max-w-[calc(100%-1rem)] truncate`}>

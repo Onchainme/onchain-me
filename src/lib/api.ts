@@ -6,6 +6,31 @@ export const API_BASE_URL =
 
 export type LandsSort = "recent" | "score";
 
+export interface StatsResponse {
+  totalMinted: number;
+  mintedToday: number;
+  totalUsers: number;
+  totalPlacements: number;
+}
+
+/**
+ * Public, no-auth aggregate stats from /api/v1/stats. Used by the marketing
+ * landing to swap the hardcoded "$6B / 2.5M / 100k / 0" copy for the real
+ * counters. Throws on non-200 so callers can fall back to the static copy.
+ */
+export async function fetchStats(signal?: AbortSignal): Promise<StatsResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/stats`, {
+    signal,
+    // Refresh once a minute on the edge so a long-lived SSR page doesn't lock
+    // in the snapshot for an hour. Browser side, Cache-Control still wins.
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch stats: ${res.status}`, res.status);
+  }
+  return (await res.json()) as StatsResponse;
+}
+
 export interface ApiLand {
   wallet: string;
   ogImageUrl: string | null;

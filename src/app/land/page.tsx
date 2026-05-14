@@ -67,7 +67,10 @@ export default function PublicLandPageWrapper() {
 
 function PublicLandPage() {
   const search = useSearchParams();
+  // Hover drives the cyan ring; click drives the ObjectTooltip. Two separate
+  // indices so the tooltip stays open when the cursor moves away.
   const [hovered, setHovered] = useState<number | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [land, setLand] = useState<LandResponse | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -96,7 +99,7 @@ function PublicLandPage() {
   }, [owner]);
 
   const objects = useMemo(() => (land ? buildLandObjects(land) : []), [land]);
-  const hoveredObj = hovered != null ? (objects[hovered] ?? null) : null;
+  const hoveredObj = selectedIdx != null ? (objects[selectedIdx] ?? null) : null;
 
   // Tap-outside to close the tooltip. Canvas taps and PlacedObjectsList row
   // taps have their own handlers — exempt them so they aren't doubly handled.
@@ -106,7 +109,8 @@ function PublicLandPage() {
       const target = e.target as HTMLElement | null;
       if (target?.closest("canvas")) return;
       if (target?.closest("[data-tooltip-zone='list']")) return;
-      setHovered(null);
+      // Outside-click closes the tooltip (formerly the hover indicator).
+      setSelectedIdx(null);
     }
     const t = setTimeout(() => {
       document.addEventListener("click", handler);
@@ -185,19 +189,16 @@ function PublicLandPage() {
               onObjectClick={(obj) => {
                 const idx = objects.findIndex((o) => o.id === obj.id);
                 if (idx < 0) return;
-                setHovered((prev) => (prev === idx ? null : idx));
+                setSelectedIdx((prev) => (prev === idx ? null : idx));
               }}
-              onTileClick={() => setHovered(null)}
+              onTileClick={() => setSelectedIdx(null)}
             />
             {hoveredObj ? (
               <ObjectTooltip
                 obj={hoveredObj}
                 className="left-2 top-2 sm:left-auto sm:top-12 sm:right-4"
-                onClose={
-                  process.env.NEXT_PUBLIC_PLATFORM === "mobile"
-                    ? () => setHovered(null)
-                    : undefined
-                }
+                // Click-driven tooltip → close button on every platform.
+                onClose={() => setSelectedIdx(null)}
               />
             ) : null}
             {notFound ? (
@@ -214,6 +215,7 @@ function PublicLandPage() {
           objects={objects}
           hovered={hovered}
           onHover={setHovered}
+          onSelect={(i) => setSelectedIdx((prev) => (prev === i ? null : i))}
           loading={!land && !notFound}
         />
       </div>
@@ -231,11 +233,14 @@ function PlacedObjectsList({
   objects,
   hovered,
   onHover,
+  onSelect,
   loading,
 }: {
   objects: LandObject[];
   hovered: number | null;
   onHover: (i: number | null) => void;
+  /** Called when the user clicks a list row — opens the tooltip on the canvas. */
+  onSelect: (i: number) => void;
   loading: boolean;
 }) {
   return (
@@ -265,7 +270,7 @@ function PlacedObjectsList({
                 type="button"
                 onMouseEnter={() => onHover(i)}
                 onMouseLeave={() => onHover(null)}
-                onClick={() => onHover(hovered === i ? null : i)}
+                onClick={() => onSelect(i)}
                 className={cn(
                   "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
                   hovered === i

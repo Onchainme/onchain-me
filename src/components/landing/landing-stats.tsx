@@ -1,13 +1,41 @@
+import type { StatsResponse } from "@/lib/api";
 import { LandingSection } from "./landing-section";
 
-const STATS = [
-  { value: "$6B", label: "Solana DeFi TVL, 2026", glow: "glow-c" },
-  { value: "2.5M", label: "Monthly active wallets", glow: "glow-m" },
-  { value: "100K+", label: "Phi users on Base — category validated", glow: "glow-y" },
-  { value: "0", label: "Solana-native competitors shipped", glow: "" },
-];
+interface LandingStatsProps {
+  /** Live counts from /api/v1/stats. Two of the four cells render from this
+   *  when present; the other two are evergreen marketing numbers about the
+   *  Solana ecosystem (TVL, MAW) — those stay static. Null → all four show
+   *  marketing fallbacks so the section is never empty. */
+  stats?: StatsResponse | null;
+}
 
-export function LandingStats() {
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return n.toLocaleString("en-US");
+}
+
+export function LandingStats({ stats = null }: LandingStatsProps) {
+  // First two cells: live OnchainMe numbers. Render "—" while API is
+  // unreachable so the section never goes blank but it's clearly empty
+  // (not a fake count).
+  const STATS = [
+    {
+      value: stats ? formatCompact(stats.totalMinted) : "—",
+      label: "Badges minted on Solana",
+      glow: "glow-c",
+    },
+    {
+      value: stats ? formatCompact(stats.totalUsers) : "—",
+      label: "Wallets onboarded",
+      glow: "glow-m",
+    },
+    // Last two cells: ecosystem context. Static, ground truth from category
+    // research (Phi shipped this on Base; we're applying the same playbook).
+    { value: "$6B", label: "Solana DeFi TVL, 2026", glow: "glow-y" },
+    { value: "100K+", label: "Phi users on Base — category validated", glow: "" },
+  ];
+
   return (
     <LandingSection
       eyebrow="Why now"

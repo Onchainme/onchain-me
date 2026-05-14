@@ -1,6 +1,6 @@
 
 
-import type { LandResponse } from "@/lib/api";
+import type { LandResponse, StatsResponse } from "@/lib/api";
 import { LandingShell } from "./landing-shell";
 import { LandingHero } from "./landing-hero";
 import { LandingProblem } from "./landing-problem";
@@ -17,9 +17,12 @@ interface LandingProps {
    *  preview's PixiJS scene. Null when the API is unreachable or there are
    *  no lands yet — hero falls back to the SVG `MiniIsland` thumbnail. */
   previewLand?: LandResponse | null;
+  /** Live aggregate counters; when present, LandingStats swaps its hardcoded
+   *  marketing numbers for these. Null → static placeholders. */
+  stats?: StatsResponse | null;
 }
 
-export function Landing({ previewLand = null }: LandingProps) {
+export function Landing({ previewLand = null, stats = null }: LandingProps) {
   return (
     <LandingShell>
       <LandingHero previewLand={previewLand} />
@@ -27,7 +30,7 @@ export function Landing({ previewLand = null }: LandingProps) {
       <LandingHow />
       <LandingBadges />
       <LandingSybil />
-      <LandingStats />
+      <LandingStats stats={stats} />
       <LandingFaq />
       <LandingCta />
       <LandingFooter />
