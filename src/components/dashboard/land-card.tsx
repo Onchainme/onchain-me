@@ -88,7 +88,7 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
                 TOP {land.rarityPct}%
               </Badge>
             ) : null}
-            {land.rank != null && land.rank > 0 && size !== "sm" ? (
+            {land.rank != null && land.rank > 0 ? (
               <div className="font-silk flex items-baseline gap-1.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                 <span
                   className="text-muted-neon"
