@@ -14,27 +14,43 @@ const IslandScene = dynamic(
 
 export type { IslandSceneProps };
 
-export function IsometricIsland(props: IslandSceneProps) {
+export interface IsometricIslandProps extends IslandSceneProps {
+  /** Stretch the canvas to fill its parent (both dimensions) instead of
+   *  preserving the props.width/height aspect ratio. Parent must be sized
+   *  (e.g. `position: relative` with explicit/flex height). */
+  fill?: boolean;
+  className?: string;
+}
+
+export function IsometricIsland(props: IsometricIslandProps) {
+  const { fill, className, ...sceneProps } = props;
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const compute = (containerW: number) => {
-      const ratio = props.height / props.width;
-      const w = Math.min(props.width, Math.floor(containerW));
-      const h = Math.floor(w * ratio);
+    const compute = (containerW: number, containerH: number) => {
+      let w: number;
+      let h: number;
+      if (fill) {
+        w = Math.max(1, Math.floor(containerW));
+        h = Math.max(1, Math.floor(containerH));
+      } else {
+        const ratio = props.height / props.width;
+        w = Math.min(props.width, Math.floor(containerW));
+        h = Math.floor(w * ratio);
+      }
       setSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
     };
-    compute(el.clientWidth);
+    compute(el.clientWidth, el.clientHeight);
     const ro = new ResizeObserver((entries) => {
-      const cw = entries[0]?.contentRect.width ?? el.clientWidth;
-      compute(cw);
+      const rect = entries[0]?.contentRect;
+      compute(rect?.width ?? el.clientWidth, rect?.height ?? el.clientHeight);
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [props.width, props.height]);
+  }, [props.width, props.height, fill]);
 
   const w = size?.w ?? props.width;
   const h = size?.h ?? props.height;
@@ -45,8 +61,23 @@ export function IsometricIsland(props: IslandSceneProps) {
   const shrink = w < 360 ? 0.4 : w < 480 ? 0.4 : w < 640 ? 0.8 : 1;
   const scale = baseScale * shrink;
 
+  if (fill) {
+    return (
+      <div
+        ref={wrapRef}
+        className={className ?? "w-full h-full"}
+        style={{ imageRendering: "pixelated" }}
+      >
+        {size ? <IslandScene {...sceneProps} width={w} height={h} scale={scale} /> : null}
+      </div>
+    );
+  }
+
   return (
-    <div ref={wrapRef} className="w-full min-w-0 max-w-full flex justify-center overflow-hidden">
+    <div
+      ref={wrapRef}
+      className={className ?? "w-full min-w-0 max-w-full flex justify-center overflow-hidden"}
+    >
       <div
         style={{
           width: w,
@@ -55,7 +86,7 @@ export function IsometricIsland(props: IslandSceneProps) {
           imageRendering: "pixelated",
         }}
       >
-        {size ? <IslandScene {...props} width={w} height={h} scale={scale} /> : null}
+        {size ? <IslandScene {...sceneProps} width={w} height={h} scale={scale} /> : null}
       </div>
     </div>
   );

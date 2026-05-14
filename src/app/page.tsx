@@ -2,7 +2,9 @@ import { Landing } from "@/components/landing/landing";
 import {
   fetchLand,
   fetchLands,
+  fetchStats,
   type LandResponse,
+  type StatsResponse,
 } from "@/lib/api";
 
 /**
@@ -11,16 +13,29 @@ import {
  * at any time from inside the app.
  */
 export default async function HomePage() {
-  // Most recent land seeds the hero's PixiJS preview. Null when the API is
-  // unreachable or there are no lands yet (hero falls back to MiniIsland SVG).
+  // Top-scoring land seeds the hero's PixiJS preview so it's always populated.
+  // Stats power the LandingStats section. Both null on API failure — components
+  // fall back to their static placeholders.
   let previewLand: LandResponse | null = null;
-  try {
-    const list = await fetchLands({ sort: "recent", limit: 1 });
-    const wallet = list.items[0]?.wallet;
-    if (wallet) previewLand = await fetchLand(wallet);
-  } catch {
-    previewLand = null;
+  let stats: StatsResponse | null = null;
+
+  const [landsResult, statsResult] = await Promise.allSettled([
+    fetchLands({ sort: "score", limit: 1 }),
+    fetchStats(),
+  ]);
+  if (landsResult.status === "fulfilled") {
+    const wallet = landsResult.value.items[0]?.wallet;
+    if (wallet) {
+      try {
+        previewLand = await fetchLand(wallet);
+      } catch {
+        previewLand = null;
+      }
+    }
+  }
+  if (statsResult.status === "fulfilled") {
+    stats = statsResult.value;
   }
 
-  return <Landing previewLand={previewLand} />;
+  return <Landing previewLand={previewLand} stats={stats} />;
 }

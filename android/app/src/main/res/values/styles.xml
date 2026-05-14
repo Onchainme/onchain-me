@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <!-- Window background shows through behind the WebView before/while
+             the JS bundle loads, and during pull-to-refresh overscroll. -->
+        <item name="android:windowBackground">@color/onchainBackground</item>
+        <!-- Status bar (top) + navigation bar (bottom). Without these the
+             system paints them white on light-theme devices, leaving the
+             "white edges" around the WebView. -->
+        <item name="android:statusBarColor">@color/onchainBackground</item>
+        <item name="android:navigationBarColor">@color/onchainBackground</item>
+        <!-- Force light-coloured icons on the dark bars (we're a dark app). -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@color/onchainBackground</item>
+    </style>
+</resources>

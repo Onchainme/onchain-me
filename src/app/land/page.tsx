@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { MapFrame } from "@/components/dashboard/map-frame";
 import { ObjectTooltip } from "@/components/dashboard/object-tooltip";
@@ -14,7 +14,6 @@ import { Separator } from "@/components/ui/separator";
 import { StatChip } from "@/components/ui/stat-chip";
 import { GlyphTile } from "@/components/ui/glyph-tile";
 import { WalletAvatar } from "@/components/ui/wallet-avatar";
-import { useWallet } from "@/hooks/wallet";
 import { ApiError, fetchLand, type LandResponse } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/api";
 import { BADGE_CATALOG, badgeAsset, isBadgeId } from "@/lib/badge-catalog";
@@ -58,17 +57,25 @@ function buildLandObjects(land: LandResponse): LandObject[] {
   });
 }
 
-export default function PublicLandPage() {
-  const params = useParams<{ wallet: string }>();
+export default function PublicLandPageWrapper() {
+  return (
+    <Suspense fallback={<PageShell>{null}</PageShell>}>
+      <PublicLandPage />
+    </Suspense>
+  );
+}
+
+function PublicLandPage() {
   const search = useSearchParams();
-  const { wallet: visitor } = useWallet();
+  // Hover drives the cyan ring; click drives the ObjectTooltip. Two separate
+  // indices so the tooltip stays open when the cursor moves away.
   const [hovered, setHovered] = useState<number | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [land, setLand] = useState<LandResponse | null>(null);
   const [notFound, setNotFound] = useState(false);
 
-  const owner = decodeURIComponent(params?.wallet ?? "");
-  const incomingRef = search?.get("ref");
+  const owner = decodeURIComponent(search?.get("wallet") ?? "");
 
   useEffect(() => {
     if (!owner) return;
@@ -92,12 +99,27 @@ export default function PublicLandPage() {
   }, [owner]);
 
   const objects = useMemo(() => (land ? buildLandObjects(land) : []), [land]);
-  const hoveredObj = hovered != null ? (objects[hovered] ?? null) : null;
+  const hoveredObj = selectedIdx != null ? (objects[selectedIdx] ?? null) : null;
 
-  const refForLink = useMemo(
-    () => visitor?.shortAddress ?? incomingRef ?? shortAddress(owner),
-    [visitor, incomingRef, owner],
-  );
+  // Tap-outside to close the tooltip. Canvas taps and PlacedObjectsList row
+  // taps have their own handlers — exempt them so they aren't doubly handled.
+  useEffect(() => {
+    if (hovered === null) return;
+    function handler(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("canvas")) return;
+      if (target?.closest("[data-tooltip-zone='list']")) return;
+      // Outside-click closes the tooltip (formerly the hover indicator).
+      setSelectedIdx(null);
+    }
+    const t = setTimeout(() => {
+      document.addEventListener("click", handler);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("click", handler);
+    };
+  }, [hovered]);
 
   const score = land?.stats.score ?? 0;
   const rank = land?.stats.rank ?? 0;
@@ -109,11 +131,6 @@ export default function PublicLandPage() {
           <span className="text-cyan-neon">onchain.me</span>/land/
           <span className="glow-m">{owner}</span>
         </span>
-        {incomingRef ? (
-          <span className={`${UI_TEXT.labelTextSm} text-muted-neon`}>
-            · REF: <span className="glow-c">{incomingRef}</span>
-          </span>
-        ) : null}
       </div>
 
       <div className={`${UI_LAYOUT.pageContainer} grid gap-3 p-3 sm:gap-5 sm:p-6 grid-cols-1 md:grid-cols-[1fr_360px] lg:grid-cols-[1fr_380px]`}>
@@ -169,11 +186,19 @@ export default function PublicLandPage() {
               objects={objects}
               hoveredIndex={hovered}
               onHoverObject={setHovered}
+              onObjectClick={(obj) => {
+                const idx = objects.findIndex((o) => o.id === obj.id);
+                if (idx < 0) return;
+                setSelectedIdx((prev) => (prev === idx ? null : idx));
+              }}
+              onTileClick={() => setSelectedIdx(null)}
             />
             {hoveredObj ? (
               <ObjectTooltip
                 obj={hoveredObj}
                 className="left-2 top-2 sm:left-auto sm:top-12 sm:right-4"
+                // Click-driven tooltip → close button on every platform.
+                onClose={() => setSelectedIdx(null)}
               />
             ) : null}
             {notFound ? (
@@ -190,6 +215,7 @@ export default function PublicLandPage() {
           objects={objects}
           hovered={hovered}
           onHover={setHovered}
+          onSelect={(i) => setSelectedIdx((prev) => (prev === i ? null : i))}
           loading={!land && !notFound}
         />
       </div>
@@ -198,7 +224,6 @@ export default function PublicLandPage() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         ownerAddress={owner}
-        refAddress={refForLink}
       />
     </PageShell>
   );
@@ -208,15 +233,18 @@ function PlacedObjectsList({
   objects,
   hovered,
   onHover,
+  onSelect,
   loading,
 }: {
   objects: LandObject[];
   hovered: number | null;
   onHover: (i: number | null) => void;
+  /** Called when the user clicks a list row — opens the tooltip on the canvas. */
+  onSelect: (i: number) => void;
   loading: boolean;
 }) {
   return (
-    <Card padding="lg" className="flex-col sm:min-h-[700px]">
+    <Card padding="lg" className="flex-col sm:min-h-[700px]" data-tooltip-zone="list">
       <div className="flex items-center mb-2.5">
         <span className={`${UI_TEXT.labelText} glow-c`}>PLACED OBJECTS</span>
         <Badge variant="tag-cyan" className="ml-2">
@@ -232,10 +260,6 @@ function PlacedObjectsList({
           </div>
         ) : (
           objects.map((o, i) => {
-            // Prefer the rendered badge asset (animated WebP / static PNG)
-            // when we recognise the badgeId. Fall back to the legacy
-            // GlyphTile so any future custom-not-yet-catalogued objects
-            // still render with the protocol initial + hue.
             const assetUrl =
               o.badgeId && isBadgeId(o.badgeId)
                 ? badgeAsset(API_BASE_URL, o.badgeId)?.url ?? null
@@ -246,6 +270,7 @@ function PlacedObjectsList({
                 type="button"
                 onMouseEnter={() => onHover(i)}
                 onMouseLeave={() => onHover(null)}
+                onClick={() => onSelect(i)}
                 className={cn(
                   "flex items-center gap-2.5 p-2 border-2 cursor-pointer transition-colors text-left",
                   hovered === i
@@ -276,7 +301,7 @@ function PlacedObjectsList({
       </div>
       <Separator variant="dashed" />
       <div className="font-pixel-body text-sm text-muted-neon">
-        Hover row → object pulses on map.
+        Tap a row or an object → details appear.
       </div>
     </Card>
   );

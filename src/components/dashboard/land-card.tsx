@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn, shortWallet } from "@/lib/utils";
 import { MiniIsland } from "@/components/canvas/MiniIsland";
+import { IsometricIsland } from "@/components/canvas/IsometricIsland";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { LandSummary } from "@/lib/types";
@@ -38,7 +39,7 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
 
   return (
     <Link
-      href={`/land/${encodeURIComponent(land.address)}`}
+      href={`/land?wallet=${encodeURIComponent(land.address)}`}
       prefetch={false}
       className={cn("block h-full", className)}
     >
@@ -51,14 +52,25 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
           className="flex-1 relative mb-2.5 border-2 border-border-neon-2 overflow-hidden"
           style={{ minHeight: s.minH }}
         >
-          <MiniIsland
-            width={s.w}
-            height={s.h}
-            seed={land.seed}
-            count={s.count}
-            fill
-            className="absolute inset-0 pointer-events-none"
-          />
+          {land.objects && land.objects.length > 0 ? (
+            <IsometricIsland
+              fill
+              width={s.w}
+              height={s.h}
+              scale={isXL ? 1.5 : 1.3}
+              objects={land.objects}
+              className="absolute inset-0 pointer-events-none"
+            />
+          ) : (
+            <MiniIsland
+              width={s.w}
+              height={s.h}
+              seed={land.seed}
+              count={s.count}
+              fill
+              className="absolute inset-0 pointer-events-none"
+            />
+          )}
 
           <PreviewBadge land={land} size={size} />
 
@@ -76,7 +88,7 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
                 TOP {land.rarityPct}%
               </Badge>
             ) : null}
-            {land.rank != null && size !== "sm" ? (
+            {land.rank != null && land.rank > 0 && size !== "sm" ? (
               <div className="font-silk flex items-baseline gap-1.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                 <span
                   className="text-muted-neon"

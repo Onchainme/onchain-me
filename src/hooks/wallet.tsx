@@ -15,13 +15,21 @@ import {
   type MessageSignerWalletAdapter,
   type SignerWalletAdapter,
 } from "@solana/wallet-adapter-base";
-import type { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import type { Wallet } from "@/lib/types";
+import { IS_MOBILE } from "@/lib/platform";
+import {
+  mwaConnect,
+  mwaDisconnect,
+  mwaSignMessage,
+  mwaSignTransactions,
+  type MwaSession,
+} from "@/lib/mwa";
 
 interface WalletContextValue {
   wallet: Wallet | null;
@@ -111,6 +119,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [isConnectOpen, setConnectOpen] = useState(false);
   const adaptersRef = useRef<Partial<Record<WalletProviderName, MessageSignerWalletAdapter>>>({});
   const activeAdapterRef = useRef<MessageSignerWalletAdapter | null>(null);
+  const mwaSessionRef = useRef<MwaSession | null>(null);
 
   const getAdapter = useCallback((walletName: WalletProviderName) => {
     const existing = adaptersRef.current[walletName];
@@ -157,20 +166,41 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setAuthError(null);
     setIsConnecting(true);
     try {
-      const adapter = getAdapter(walletName);
-      if (
-        adapter.readyState === WalletReadyState.NotDetected ||
-        adapter.readyState === WalletReadyState.Unsupported
-      ) {
-        throw new Error(`${WALLET_LABELS[walletName]} wallet not found. Please install it.`);
-      }
+      let walletAddress: string;
+      let signMessage: (msg: Uint8Array) => Promise<string>; // returns bs58 signature
 
-      await adapter.connect();
-      const walletAddress = adapter.publicKey?.toBase58();
-      if (!walletAddress) {
-        throw new Error(`${WALLET_LABELS[walletName]} connected but no public key was returned.`);
+      if (IS_MOBILE) {
+        // The MWA bottom sheet shows every installed wallet, so the user-picked
+        // walletName from the modal is informational only. Seed Vault on Seeker
+        // appears in the sheet automatically.
+        const session = await mwaConnect();
+        walletAddress = session.publicKeyB58;
+        mwaSessionRef.current = session;
+        signMessage = async (msg) => mwaSignMessage(msg, session);
+      } else {
+        const adapter = getAdapter(walletName);
+        if (
+          adapter.readyState === WalletReadyState.NotDetected ||
+          adapter.readyState === WalletReadyState.Unsupported
+        ) {
+          throw new Error(`${WALLET_LABELS[walletName]} wallet not found. Please install it.`);
+        }
+
+        await adapter.connect();
+        const adapterAddress = adapter.publicKey?.toBase58();
+        if (!adapterAddress) {
+          throw new Error(`${WALLET_LABELS[walletName]} connected but no public key was returned.`);
+        }
+        activeAdapterRef.current = adapter;
+        walletAddress = adapterAddress;
+        signMessage = async (msg) => {
+          if (!adapter.signMessage) {
+            throw new Error(`${WALLET_LABELS[walletName]} does not support message signing.`);
+          }
+          const signed = await adapter.signMessage(msg);
+          return bs58.encode(normalizeSignedMessage(signed));
+        };
       }
-      activeAdapterRef.current = adapter;
 
       const nonceResponse = await fetch(getApiUrl("/api/v1/auth/nonce"), {
         method: "POST",
@@ -187,11 +217,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const message = nonceData.message || `Sign this message. Nonce: ${nonceData.nonce}`;
 
       const encodedMessage = new TextEncoder().encode(message);
-      if (!adapter.signMessage) {
-        throw new Error(`${WALLET_LABELS[walletName]} does not support message signing.`);
-      }
-      const signed = await adapter.signMessage(encodedMessage);
-      const signature = bs58.encode(normalizeSignedMessage(signed));
+      const signature = await signMessage(encodedMessage);
 
       const verifyResponse = await fetch(getApiUrl("/api/v1/auth/verify"), {
         method: "POST",
@@ -220,16 +246,23 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const disconnect = useCallback(async () => {
     setAuthError(null);
-    const adapters = Object.values(adaptersRef.current);
-    await Promise.all(
-      adapters.map(async (adapter) => {
-        if (!adapter) return;
-        try {
-          await adapter.disconnect();
-        } catch {}
-      }),
-    );
-    activeAdapterRef.current = null;
+    if (IS_MOBILE) {
+      try {
+        await mwaDisconnect();
+      } catch {}
+      mwaSessionRef.current = null;
+    } else {
+      const adapters = Object.values(adaptersRef.current);
+      await Promise.all(
+        adapters.map(async (adapter) => {
+          if (!adapter) return;
+          try {
+            await adapter.disconnect();
+          } catch {}
+        }),
+      );
+      activeAdapterRef.current = null;
+    }
     try {
       await fetch(getApiUrl("/api/v1/auth/logout"), {
         method: "POST",
@@ -241,6 +274,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const signTransaction = useCallback(
     async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
+      if (IS_MOBILE) {
+        const session = mwaSessionRef.current;
+        if (!session) throw new Error("Wallet not connected");
+        const serialised = tx.serialize({ requireAllSignatures: false }) as Uint8Array;
+        const [signedBytes] = await mwaSignTransactions([serialised], session);
+        if (tx instanceof Transaction) {
+          return Transaction.from(signedBytes) as T;
+        }
+        return VersionedTransaction.deserialize(signedBytes) as T;
+      }
       const adapter = activeAdapterRef.current as SignerWalletAdapter | null;
       if (!adapter) throw new Error("Wallet not connected");
       if (!adapter.signTransaction) {

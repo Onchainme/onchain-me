@@ -1,9 +1,35 @@
 import type { LandSummary } from "./types";
+import { placementToLandObject } from "./placement-mapper";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 export type LandsSort = "recent" | "score";
+
+export interface StatsResponse {
+  totalMinted: number;
+  mintedToday: number;
+  totalUsers: number;
+  totalPlacements: number;
+}
+
+/**
+ * Public, no-auth aggregate stats from /api/v1/stats. Used by the marketing
+ * landing to swap the hardcoded "$6B / 2.5M / 100k / 0" copy for the real
+ * counters. Throws on non-200 so callers can fall back to the static copy.
+ */
+export async function fetchStats(signal?: AbortSignal): Promise<StatsResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/stats`, {
+    signal,
+    // Refresh once a minute on the edge so a long-lived SSR page doesn't lock
+    // in the snapshot for an hour. Browser side, Cache-Control still wins.
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to fetch stats: ${res.status}`, res.status);
+  }
+  return (await res.json()) as StatsResponse;
+}
 
 export interface ApiLand {
   wallet: string;
@@ -11,6 +37,17 @@ export interface ApiLand {
   objectsCount: number;
   score: number;
   rank: number;
+  /** Mirrors /lands/:wallet's `stats` so cards in the grid can show the same
+   *  numbers (txn count, distinct protocols) without an extra per-card fetch. */
+  stats: {
+    protocols: number;
+    transactions: number;
+    score: number;
+    rank: number;
+  };
+  /** Object placements on the wallet's island, used to render the real Pixi
+   *  scene on land cards. */
+  placements: LandPlacementApi[];
 }
 
 export interface LandsPage {
@@ -55,7 +92,37 @@ export async function fetchLands({
     throw new ApiError(`Failed to fetch lands: ${res.status}`, res.status);
   }
 
-  return (await res.json()) as LandsPage;
+  const raw = (await res.json()) as {
+    items: Array<Omit<ApiLand, "placements"> & { placements?: LandPlacementApi[] }>;
+    nextCursor: string | null;
+  };
+  const items = await enrichWithPlacements(raw.items, signal);
+  return { items, nextCursor: raw.nextCursor };
+}
+
+/**
+ * Transparent fallback while the backend doesn't yet inline `placements` in
+ * `GET /api/v1/lands`. For each item missing placements, fetch the wallet's
+ * full land in parallel and stitch the placements in.
+ *
+ * When backend ships `placements` inline this function is a no-op (the early
+ * `placements != null` branch wins), so callers don't need to change.
+ */
+async function enrichWithPlacements(
+  items: Array<Omit<ApiLand, "placements"> & { placements?: LandPlacementApi[] }>,
+  signal?: AbortSignal,
+): Promise<ApiLand[]> {
+  return Promise.all(
+    items.map(async (item) => {
+      if (item.placements != null) return item as ApiLand;
+      try {
+        const detail = await fetchLand(item.wallet, signal);
+        return { ...item, placements: detail.placements };
+      } catch {
+        return { ...item, placements: [] };
+      }
+    }),
+  );
 }
 
 export type FeedItem =
@@ -427,6 +494,7 @@ export function toLandSummary(item: ApiLand): LandSummary {
     points: item.score,
     rank: item.rank,
     seed: walletSeed(item.wallet),
+    objects: item.placements.map(placementToLandObject),
   };
 }
 

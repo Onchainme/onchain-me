@@ -34,7 +34,12 @@ export default function MyLandPage() {
   const { isConnected, isSessionReady, wallet, openConnectModal } = useWallet();
   const router = useRouter();
   const [placed, setPlaced] = useState<LandObject[]>([]);
-  const [hovered, setHovered] = useState<number | null>(0);
+  // Two independent indices so hover (visual ring) and click (info tooltip)
+  // don't fight each other. Hover only drives the cyan ring around the
+  // badge sprite; clicking a badge is what opens its ObjectTooltip. Tap the
+  // same badge or an empty tile to close.
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -49,6 +54,25 @@ export default function MyLandPage() {
       router.replace("/home");
     }
   }, [isConnected, isSessionReady, openConnectModal, router]);
+
+  // Tap-outside to close the tooltip. The tooltip itself is pointer-events-none
+  // so it never receives the click; we just exempt the Pixi canvas (taps there
+  // are handled by onObjectClick/onTileClick) and close on anything else.
+  useEffect(() => {
+    if (hovered === null) return;
+    function handler(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("canvas")) return;
+      setHovered(null);
+    }
+    const t = setTimeout(() => {
+      document.addEventListener("click", handler);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("click", handler);
+    };
+  }, [hovered]);
 
   useEffect(() => {
     if (!wallet?.address) return;
@@ -65,7 +89,8 @@ export default function MyLandPage() {
         setInventory(inv);
         const mapped = land.placements.map((placement, index) => placementToLandObject(placement, index));
         setPlaced(mapped);
-        setHovered(mapped.length > 0 ? 0 : null);
+        setSelectedIdx(null);
+        setHovered(null);
       })
       .catch((e: unknown) => {
         if (ctrl.signal.aborted) return;
@@ -83,7 +108,7 @@ export default function MyLandPage() {
 
   if (!isSessionReady || !isConnected) return null;
 
-  const hoveredObj = hovered != null ? placed[hovered] : null;
+  const hoveredObj = selectedIdx != null ? placed[selectedIdx] : null;
   const shortAddress = wallet?.shortAddress ?? MY_SHORT;
   const fullAddress = wallet?.address ?? shortAddress;
   const eligibleCount = inventory?.eligible.length ?? 0;
@@ -95,7 +120,7 @@ export default function MyLandPage() {
       ? "FAILED TO LOAD LAND DATA"
       : placed.length === 0
         ? "NO PLACED OBJECTS YET"
-        : `HOVER A BUILDING FOR DETAILS · CLAIMED ${claimedCount} · ELIGIBLE ${eligibleCount}`;
+        : `TAP A BUILDING FOR DETAILS · CLAIMED ${claimedCount} · ELIGIBLE ${eligibleCount}`;
 
   return (
     <PageShell>
@@ -117,6 +142,13 @@ export default function MyLandPage() {
               objects={placed}
               hoveredIndex={hovered}
               onHoverObject={setHovered}
+              onObjectClick={(obj) => {
+                const idx = placed.findIndex((p) => p.id === obj.id);
+                if (idx < 0) return;
+                // Toggle: re-click same badge to close, click another to switch.
+                setSelectedIdx((prev) => (prev === idx ? null : idx));
+              }}
+              onTileClick={() => setSelectedIdx(null)}
             />
             {isLoading ? (
               <div className="absolute inset-0 z-20 grid place-items-center bg-[rgba(10,6,18,0.35)]">
@@ -124,7 +156,14 @@ export default function MyLandPage() {
               </div>
             ) : null}
             {hoveredObj ? (
-              <ObjectTooltip obj={hoveredObj} className="left-2 top-2 sm:left-auto sm:right-4 sm:top-12" />
+              <ObjectTooltip
+                obj={hoveredObj}
+                className="left-2 top-2 sm:left-auto sm:right-4 sm:top-12"
+                // Tooltip is now click-driven everywhere (not only mobile), so
+                // always render the close button. Lets desktop users dismiss
+                // without aiming at empty grass.
+                onClose={() => setSelectedIdx(null)}
+              />
             ) : null}
             <div className={`${UI_TEXT.labelText} absolute bottom-2 left-2 sm:bottom-4 sm:left-4 text-muted-neon max-w-[calc(100%-1rem)] truncate`}>
               {helperText}
@@ -177,7 +216,6 @@ export default function MyLandPage() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         ownerAddress={fullAddress}
-        refAddress={fullAddress}
       />
     </PageShell>
   );
