@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Header } from "@/components/dashboard/Header";
 import { ConnectWalletModalLazy } from "@/components/modals/connect-wallet-modal-lazy";
+import { MintToast } from "@/components/dashboard/mint-toast";
 
 interface PageShellProps {
   children: ReactNode;
@@ -23,6 +24,10 @@ export function PageShell({ children, className }: PageShellProps) {
       <Header />
       <main>{children}</main>
       <ConnectWalletModalLazy />
+      {/* Mint-completion notifications — fixed bottom-right above all modals.
+          Listens for `onchainme:mint` so it works for both single and batch
+          flows regardless of which page triggered the mint. */}
+      <MintToast />
     </div>
   );
 }

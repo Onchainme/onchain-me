@@ -472,11 +472,16 @@ export function useInventory(): UseInventoryResult {
         // until a full page reload.
         importedForWalletRef.current = null;
 
-        // Notify other components (Hero banner, StatsRail) so they re-fetch
-        // /lands and /inventory and reflect the new score / claimed count
-        // without waiting for the next page reload.
+        // Notify other components (Hero banner, StatsRail, MintToast) so they
+        // re-fetch /lands and /inventory and reflect the new score / claimed
+        // count without waiting for the next page reload. The toast also needs
+        // signature so it can deep-link to the explorer.
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("onchainme:mint", { detail: { badgeId } }));
+          window.dispatchEvent(
+            new CustomEvent("onchainme:mint", {
+              detail: { badgeId, signature: signatureB58 },
+            }),
+          );
         }
 
         setMintStage("done");
