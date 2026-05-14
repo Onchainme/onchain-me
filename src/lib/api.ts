@@ -37,10 +37,16 @@ export interface ApiLand {
   objectsCount: number;
   score: number;
   rank: number;
+  /** Mirrors /lands/:wallet's `stats` so cards in the grid can show the same
+   *  numbers (txn count, distinct protocols) without an extra per-card fetch. */
+  stats: {
+    protocols: number;
+    transactions: number;
+    score: number;
+    rank: number;
+  };
   /** Object placements on the wallet's island, used to render the real Pixi
-   *  scene on land cards. Today `/api/v1/lands` does NOT return this — see the
-   *  `enrichWithPlacements` helper below; once the backend includes it inline
-   *  the enrichment becomes a no-op. */
+   *  scene on land cards. */
   placements: LandPlacementApi[];
 }
 
