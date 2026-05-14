@@ -134,7 +134,7 @@ export default function MyLandPage() {
             </Button>
           }
         >
-          <div className="relative min-h-[360px] sm:min-h-[700px] flex items-center justify-center pt-8 sm:pt-0">
+          <div className="relative min-h-[360px] sm:min-h-[700px] flex items-center justify-center pt-8 sm:pt-11">
             <IsometricIsland
               width={ISLAND_W}
               height={ISLAND_H}

@@ -53,9 +53,10 @@ export interface LandSummary {
   featured?: boolean;
   badge?: string;
   rarityPct?: number;
-  /** Placements decoded into LandObjects for the Pixi scene. Empty when the
-   *  land has no objects; absent when not loaded yet (card falls back to
-   *  MiniIsland SVG). */
+}
+
+/** Placements decoded into LandObjects for the Pixi scene (merged into {@link LandSummary}). */
+export interface LandSummary {
   objects?: LandObject[];
 }
 

@@ -1,4 +1,4 @@
-import type { LandSummary } from "./types";
+import type { LandSummary } from "@/lib/types";
 import { placementToLandObject } from "./placement-mapper";
 
 export const API_BASE_URL =
