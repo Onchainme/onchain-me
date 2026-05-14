@@ -66,6 +66,12 @@ export interface FetchLandsParams {
    * thumbnails. Inline placements from the API are still preserved.
    */
   includePlacements?: boolean;
+  /**
+   * Sliding-window cap (seconds) for sort=recent. e.g. 86400 → last 24h only.
+   * Ignored when sort=score. Set on `/home`'s "Newest" tab so it surfaces
+   * actually-recent signups instead of all-time history.
+   */
+  withinSec?: number;
 }
 
 export class ApiError extends Error {
@@ -84,11 +90,15 @@ export async function fetchLands({
   limit = 20,
   signal,
   includePlacements = false,
+  withinSec,
 }: FetchLandsParams = {}): Promise<LandsPage> {
   const url = new URL(`${API_BASE_URL}/api/v1/lands`);
   url.searchParams.set("sort", sort);
   url.searchParams.set("limit", String(limit));
   if (cursor) url.searchParams.set("cursor", cursor);
+  if (withinSec && sort === "recent") {
+    url.searchParams.set("withinSec", String(withinSec));
+  }
 
   const res = await fetch(url.toString(), {
     cache: "no-store",

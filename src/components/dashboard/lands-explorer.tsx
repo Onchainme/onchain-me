@@ -35,12 +35,17 @@ interface LandsExplorerProps {
   initialItems: ApiLand[];
   initialNextCursor: string | null;
   initialSort: LandsSort;
+  /** Sliding-window cap (seconds) applied only to the "Newest" tab — matches
+   *  the SSR fetch on /home so client re-fetches stay consistent. Undefined
+   *  → no time cap (all-time history). */
+  newestWindowSec?: number;
 }
 
 export function LandsExplorer({
   initialItems,
   initialNextCursor,
   initialSort,
+  newestWindowSec,
 }: LandsExplorerProps) {
   const [sort, setSort] = useState<LandsSort>(initialSort);
   const [query, setQuery] = useState("");
@@ -55,6 +60,12 @@ export function LandsExplorer({
   const lastSortRef = useRef(initialSort);
   const pageIndex = cursorStack.length - 1;
 
+  // Apply the 24h window only when the user is on the "Newest" tab —
+  // sort=score on the API ignores withinSec anyway, but skipping it keeps the
+  // query string clean and predictable.
+  const windowForSort = (s: LandsSort) =>
+    s === "recent" ? newestWindowSec : undefined;
+
   // Static-export builds (Capacitor / Android) can't reach the API at build
   // time, so server-fetched initialItems come back empty. Fetch once on mount
   // to recover. Web SSR populates initialItems → this branch is skipped.
@@ -62,7 +73,12 @@ export function LandsExplorer({
     if (initialItems.length > 0) return;
     const ctrl = new AbortController();
     startTransition(() => {
-      fetchLands({ sort: initialSort, limit: PAGE_SIZE, signal: ctrl.signal })
+      fetchLands({
+        sort: initialSort,
+        limit: PAGE_SIZE,
+        signal: ctrl.signal,
+        withinSec: windowForSort(initialSort),
+      })
         .then((page) => {
           setItems(page.items);
           setNextCursor(page.nextCursor);
@@ -84,7 +100,12 @@ export function LandsExplorer({
     const ctrl = new AbortController();
     setError(null);
     setLoading(true);
-    fetchLands({ sort, limit: PAGE_SIZE, signal: ctrl.signal })
+    fetchLands({
+      sort,
+      limit: PAGE_SIZE,
+      signal: ctrl.signal,
+      withinSec: windowForSort(sort),
+    })
       .then((page) => {
         setItems(page.items);
         setNextCursor(page.nextCursor);
@@ -120,7 +141,12 @@ export function LandsExplorer({
     setLoading(true);
     setError(null);
     try {
-      const page = await fetchLands({ sort, cursor: cursor ?? undefined, limit: PAGE_SIZE });
+      const page = await fetchLands({
+        sort,
+        cursor: cursor ?? undefined,
+        limit: PAGE_SIZE,
+        withinSec: windowForSort(sort),
+      });
       setItems(page.items);
       setNextCursor(page.nextCursor);
       setCursorStack(nextStack);

@@ -10,6 +10,10 @@ import {
 } from "@/lib/api";
 
 const INITIAL_SORT = "recent" as const;
+// "Newest" tab on /home is a sliding 24h window so the grid surfaces
+// fresh signups instead of the entire user table sorted by createdAt.
+// Backend ignores this when sort=score.
+const NEWEST_WINDOW_SEC = 60 * 60 * 24;
 
 /**
  * App entry / home dashboard. The marketing landing lives at `/`; this route
@@ -18,7 +22,7 @@ const INITIAL_SORT = "recent" as const;
  */
 export default async function AppHomePage() {
   const [landsResult, feedResult] = await Promise.allSettled([
-    fetchLands({ sort: INITIAL_SORT, limit: 10 }),
+    fetchLands({ sort: INITIAL_SORT, limit: 10, withinSec: NEWEST_WINDOW_SEC }),
     fetchFeed({ limit: 8 }),
   ]);
 
@@ -41,6 +45,7 @@ export default async function AppHomePage() {
           initialItems={lands.items}
           initialNextCursor={lands.nextCursor}
           initialSort={INITIAL_SORT}
+          newestWindowSec={NEWEST_WINDOW_SEC}
         />
       </div>
     </PageShell>
