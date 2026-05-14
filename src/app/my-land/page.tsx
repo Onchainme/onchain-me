@@ -8,7 +8,6 @@ import { StatsRail } from "@/components/dashboard/stats-rail";
 import { MapFrame } from "@/components/dashboard/map-frame";
 import { ObjectTooltip } from "@/components/dashboard/object-tooltip";
 import { Button } from "@/components/ui/button";
-import { IsometricIsland } from "@/components/canvas/IsometricIsland";
 import { useWallet } from "@/hooks/wallet";
 import { MY_SHORT } from "@/lib/mock-data";
 import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
@@ -25,6 +24,19 @@ import { placementToLandObject } from "@/lib/placement-mapper";
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
   { ssr: false },
+);
+
+const IslandCanvas = dynamic(
+  () =>
+    import("@/components/canvas/IsometricIsland").then((m) => m.IsometricIsland),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid place-items-center min-h-[360px] sm:min-h-[560px] w-full text-muted-neon font-silk text-xs">
+        LOADING ISLAND…
+      </div>
+    ),
+  },
 );
 
 const ISLAND_W = 940;
@@ -135,7 +147,7 @@ export default function MyLandPage() {
           }
         >
           <div className="relative min-h-[360px] sm:min-h-[700px] flex items-center justify-center pt-8 sm:pt-11">
-            <IsometricIsland
+            <IslandCanvas
               width={ISLAND_W}
               height={ISLAND_H}
               scale={1.8}

@@ -10,7 +10,6 @@ import { MapFrame } from "@/components/dashboard/map-frame";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GlyphTile } from "@/components/ui/glyph-tile";
-import { IsometricIsland } from "@/components/canvas/IsometricIsland";
 import { Inventory } from "@/components/edit/inventory";
 import { useWallet } from "@/hooks/wallet";
 import { useInventory } from "@/hooks/use-inventory";
@@ -32,6 +31,19 @@ const MintAllModal = dynamic(
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
   { ssr: false },
+);
+
+const IslandCanvas = dynamic(
+  () =>
+    import("@/components/canvas/IsometricIsland").then((m) => m.IsometricIsland),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid place-items-center min-h-[360px] sm:min-h-[560px] w-full text-muted-neon font-silk text-xs">
+        LOADING ISLAND…
+      </div>
+    ),
+  },
 );
 
 const ISLAND_W = 900;
@@ -131,7 +143,7 @@ export default function EditPage() {
           }
         >
           <div className="relative min-h-[360px] sm:h-[760px] flex items-center justify-center pt-8 sm:pt-0">
-            <IsometricIsland
+            <IslandCanvas
               width={ISLAND_W}
               height={ISLAND_H}
               scale={1.8}

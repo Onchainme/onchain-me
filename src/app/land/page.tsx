@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { MapFrame } from "@/components/dashboard/map-frame";
 import { ObjectTooltip } from "@/components/dashboard/object-tooltip";
-import { IsometricIsland } from "@/components/canvas/IsometricIsland";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +24,19 @@ import type { LandObject } from "@/lib/types";
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
   { ssr: false },
+);
+
+const IslandCanvas = dynamic(
+  () =>
+    import("@/components/canvas/IsometricIsland").then((m) => m.IsometricIsland),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid place-items-center min-h-[300px] sm:min-h-[560px] w-full text-muted-neon font-silk text-xs">
+        LOADING ISLAND…
+      </div>
+    ),
+  },
 );
 
 const ISLAND_W = 760;
@@ -148,7 +160,9 @@ function PublicLandPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <StatChip label="OBJ" value={objects.length} color="cyan" size="sm" />
             <StatChip label="PTS" value={score.toLocaleString()} color="yellow" size="sm" />
-            {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" /> : null}
+            {rank > 0 ? (
+              <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" />
+            ) : null}
           </div>
         </div>
         <MapFrame
@@ -157,7 +171,9 @@ function PublicLandPage() {
             <div className="hidden sm:flex items-center gap-2">
               <StatChip label="OBJ" value={objects.length} color="cyan" size="sm" />
               <StatChip label="PTS" value={score.toLocaleString()} color="yellow" size="sm" />
-              {rank > 0 ? <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" /> : null}
+              {rank > 0 ? (
+              <StatChip label="RANK" value={`#${rank}`} color="magenta" size="sm" />
+            ) : null}
               <Button variant="cyan" onClick={() => setShareOpen(true)}>
                 ↗ Share the Land
               </Button>
@@ -179,7 +195,7 @@ function PublicLandPage() {
           </div>
 
           <div className="relative min-h-[300px] sm:h-[700px] flex items-center justify-center pt-8 sm:pt-0">
-            <IsometricIsland
+            <IslandCanvas
               width={ISLAND_W}
               height={ISLAND_H}
               scale={1.5}

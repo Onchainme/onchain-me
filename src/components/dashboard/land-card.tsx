@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { memo } from "react";
 import { cn, shortWallet } from "@/lib/utils";
 import { MiniIsland } from "@/components/canvas/MiniIsland";
-import { IsometricIsland } from "@/components/canvas/IsometricIsland";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { LandSummary } from "@/lib/types";
@@ -33,7 +33,8 @@ interface LandCardProps {
   className?: string;
 }
 
-export function LandCard({ land, size = "md", className }: LandCardProps) {
+/** SVG thumbnails only — many Pixi canvases on this grid froze `/home`. */
+function LandCardInner({ land, size = "md", className }: LandCardProps) {
   const s = PREVIEW[size];
   const isXL = size === "xl";
 
@@ -52,25 +53,14 @@ export function LandCard({ land, size = "md", className }: LandCardProps) {
           className="flex-1 relative mb-2.5 border-2 border-border-neon-2 overflow-hidden"
           style={{ minHeight: s.minH }}
         >
-          {land.objects && land.objects.length > 0 ? (
-            <IsometricIsland
-              fill
-              width={s.w}
-              height={s.h}
-              scale={isXL ? 1.5 : 1.3}
-              objects={land.objects}
-              className="absolute inset-0 pointer-events-none"
-            />
-          ) : (
-            <MiniIsland
-              width={s.w}
-              height={s.h}
-              seed={land.seed}
-              count={s.count}
-              fill
-              className="absolute inset-0 pointer-events-none"
-            />
-          )}
+          <MiniIsland
+            width={s.w}
+            height={s.h}
+            seed={land.seed}
+            count={s.count}
+            fill
+            className="absolute inset-0 pointer-events-none"
+          />
 
           <PreviewBadge land={land} size={size} />
 
@@ -178,3 +168,5 @@ function StatInline({
     </>
   );
 }
+
+export const LandCard = memo(LandCardInner);

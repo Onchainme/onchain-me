@@ -69,12 +69,10 @@ export function Hero() {
         <>
           <span className="text-ink-2">Your island is </span>
           <span className="glow-m">rank #{stats.rank}</span>
-          {stats.score > 0 ? (
-            <>
-              <span className="text-ink-2"> · </span>
-              <span className="glow-y">{stats.score} pts</span>
-            </>
-          ) : null}
+          <span className="text-ink-2"> · </span>
+          <span className={stats.score > 0 ? "glow-y" : "text-muted-neon"}>
+            {stats.score.toLocaleString()} pts
+          </span>
         </>
       ) : (
         <span className="text-ink-2">Your island awaits.</span>

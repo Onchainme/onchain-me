@@ -35,7 +35,13 @@ export interface ApiLand {
   wallet: string;
   ogImageUrl: string | null;
   objectsCount: number;
+  /** Sybil / activity points; `<= 0` lands share the same display rank (see `rank`). */
   score: number;
+  /**
+   * Competition rank among `score > 0` lands (1,2,2,4… by score desc, wallet
+   * tie-break). Every land with `score <= 0` shares **max(positive rank)+1**
+   * (or **1** if no one has points). Reference: `assignLeaderboardDisplayRanks` in `leaderboard-rank.ts`.
+   */
   rank: number;
   /** Mirrors /lands/:wallet's `stats` so cards in the grid can show the same
    *  numbers (txn count, distinct protocols) without an extra per-card fetch. */
@@ -60,6 +66,12 @@ export interface FetchLandsParams {
   cursor?: string | null;
   limit?: number;
   signal?: AbortSignal;
+  /**
+   * When false (default), skips parallel `GET /lands/:wallet` calls to
+   * backfill placements on list items — much faster for grids that only show
+   * thumbnails. Inline placements from the API are still preserved.
+   */
+  includePlacements?: boolean;
 }
 
 export class ApiError extends Error {
@@ -77,6 +89,7 @@ export async function fetchLands({
   cursor,
   limit = 20,
   signal,
+  includePlacements = false,
 }: FetchLandsParams = {}): Promise<LandsPage> {
   const url = new URL(`${API_BASE_URL}/api/v1/lands`);
   url.searchParams.set("sort", sort);
@@ -96,7 +109,7 @@ export async function fetchLands({
     items: Array<Omit<ApiLand, "placements"> & { placements?: LandPlacementApi[] }>;
     nextCursor: string | null;
   };
-  const items = await enrichWithPlacements(raw.items, signal);
+  const items = await enrichWithPlacements(raw.items, signal, includePlacements);
   return { items, nextCursor: raw.nextCursor };
 }
 
@@ -110,8 +123,18 @@ export async function fetchLands({
  */
 async function enrichWithPlacements(
   items: Array<Omit<ApiLand, "placements"> & { placements?: LandPlacementApi[] }>,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  includePlacements: boolean,
 ): Promise<ApiLand[]> {
+  if (!includePlacements) {
+    return items.map(
+      (item) =>
+        ({
+          ...item,
+          placements: item.placements ?? [],
+        }) as ApiLand,
+    );
+  }
   return Promise.all(
     items.map(async (item) => {
       if (item.placements != null) return item as ApiLand;
@@ -331,6 +354,7 @@ export interface LandResponse {
     protocols: number;
     transactions: number;
     score: number;
+    /** Same rank semantics as `ApiLand.rank`. */
     rank: number;
   };
   placements: LandPlacementApi[];
@@ -487,12 +511,12 @@ export const fetchLandInventory = (wallet: string, signal?: AbortSignal) =>
   fetchInventory(wallet, signal);
 
 // Map an API land into the dashboard's LandSummary view-model.
-export function toLandSummary(item: ApiLand): LandSummary {
+export function toLandSummary(item: ApiLand, rankOverride?: number): LandSummary {
   return {
     address: item.wallet,
     objectsCount: item.objectsCount,
     points: item.score,
-    rank: item.rank,
+    rank: rankOverride ?? item.rank,
     seed: walletSeed(item.wallet),
     objects: item.placements.map(placementToLandObject),
   };

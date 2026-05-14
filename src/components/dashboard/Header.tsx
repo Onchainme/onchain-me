@@ -158,8 +158,8 @@ export function Header() {
         <div className="flex-1 sm:hidden" />
 
         {isSessionReady && isConnected && wallet ? (
-          <div className="hidden sm:block">
-            <DropdownMenu>
+          <div className="hidden sm:block shrink-0">
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -207,9 +207,9 @@ export function Header() {
             </DropdownMenu>
           </div>
         ) : !isSessionReady ? (
-          <div className="hidden sm:block font-silk text-[10px] text-muted-neon px-2">Session…</div>
+          <div className="hidden sm:block shrink-0 font-silk text-[10px] text-muted-neon px-2">Session…</div>
         ) : (
-          <div className="hidden sm:block">
+          <div className="hidden sm:block shrink-0">
             <Button variant="primary" onClick={openConnectModal}>
               Connect Wallet
             </Button>

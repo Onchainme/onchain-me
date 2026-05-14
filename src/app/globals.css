@@ -119,6 +119,10 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Radix modal menus remove the scrollbar → layout jumps; reserve gutter. */
+  html {
+    scrollbar-gutter: stable;
+  }
   html,
   body {
     @apply bg-background text-foreground;
@@ -390,6 +394,58 @@
 @media (prefers-reduced-motion: reduce) {
   .ticker-track {
     animation: none;
+  }
+}
+
+/* Route loader (pixel blocks) */
+@keyframes pixel-loader-cell {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.28;
+  }
+}
+.pixel-loader span {
+  animation: pixel-loader-cell 0.75s steps(2) infinite;
+}
+.pixel-loader span:nth-child(1) {
+  animation-delay: 0ms;
+}
+.pixel-loader span:nth-child(2) {
+  animation-delay: 120ms;
+}
+.pixel-loader span:nth-child(3) {
+  animation-delay: 240ms;
+}
+.pixel-loader span:nth-child(4) {
+  animation-delay: 360ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pixel-loader span {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
+@keyframes route-skeleton-in {
+  from {
+    opacity: 0.4;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.route-skeleton-in {
+  animation: route-skeleton-in 240ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-skeleton-in {
+    animation: none;
+    opacity: 1;
   }
 }
 

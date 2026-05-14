@@ -11,6 +11,7 @@ import {
   type ApiLand,
   type LandsSort,
 } from "@/lib/api";
+import { assignLeaderboardDisplayRanks } from "@/lib/leaderboard-rank";
 
 const PAGE_SIZE = 10;
 
@@ -106,7 +107,20 @@ export function LandsExplorer({
     return items.filter((it) => it.wallet.toLowerCase().includes(q));
   }, [items, query]);
 
-  const summaries = useMemo(() => filtered.map(toLandSummary), [filtered]);
+  // Without wallet search: ranks match `assignLeaderboardDisplayRanks` for this
+  // page slice (API should mirror globally for pagination). With search, use API ranks.
+  const summaries = useMemo(() => {
+    const q = query.trim();
+    const rankMap =
+      q.length > 0
+        ? null
+        : assignLeaderboardDisplayRanks(
+            items.map((i) => ({ wallet: i.wallet, score: i.score })),
+          );
+    return filtered.map((item) =>
+      toLandSummary(item, rankMap?.get(item.wallet)),
+    );
+  }, [filtered, items, query]);
   // Page 1 uses bento (7 slots) + 3-card tail row; other pages render a flat
   // 10-card grid.
   const isFirstPage = pageIndex === 0;

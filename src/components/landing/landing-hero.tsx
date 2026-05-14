@@ -1,13 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo } from "react";
 import { MiniIsland } from "@/components/canvas/MiniIsland";
-import { IsometricIsland } from "@/components/canvas/IsometricIsland";
 import { OpenAppButton } from "./open-app-button";
 import { Button } from "@/components/ui/button";
 import type { LandResponse } from "@/lib/api";
 import { placementToLandObject } from "@/lib/placement-mapper";
 import { shortWallet } from "@/lib/utils";
+
+const HeroIsland = dynamic(
+  () =>
+    import("@/components/canvas/IsometricIsland").then((m) => m.IsometricIsland),
+  {
+    ssr: false,
+    loading: () => <MiniIsland fill seed={7} count={5} />,
+  },
+);
 
 const PROTOCOLS = ["Jupiter", "Pump.fun", "Orca", "Meteora", "Drift", "Tensor"];
 
@@ -113,7 +122,7 @@ function LandPreviewCard({ previewLand }: LandPreviewCardProps) {
     <div className="relative w-full aspect-square border-2 border-border-neon bg-panel overflow-hidden">
       <div className="absolute inset-0 z-0">
         {hasScene ? (
-          <IsometricIsland
+          <HeroIsland
             width={1200}
             height={1200}
             scale={1.5}
