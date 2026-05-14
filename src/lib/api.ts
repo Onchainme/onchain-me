@@ -21,9 +21,10 @@ export interface StatsResponse {
 export async function fetchStats(signal?: AbortSignal): Promise<StatsResponse> {
   const res = await fetch(`${API_BASE_URL}/api/v1/stats`, {
     signal,
-    // Refresh once a minute on the edge so a long-lived SSR page doesn't lock
-    // in the snapshot for an hour. Browser side, Cache-Control still wins.
-    next: { revalidate: 60 },
+    // 5-minute revalidation: the LANDS MINTED counter on Hero and the
+    // landing-stats cards don't need real-time accuracy, and a 5-min TTL
+    // matches the backend Cache-Control: max-age=300 we set on /api/v1/stats.
+    next: { revalidate: 300 },
   });
   if (!res.ok) {
     throw new ApiError(`Failed to fetch stats: ${res.status}`, res.status);
