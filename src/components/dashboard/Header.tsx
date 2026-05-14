@@ -16,7 +16,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UI_TEXT } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
+import { landingUrl } from "@/lib/urls";
 import { useWallet } from "@/hooks/wallet";
+
+// In the mobile build the landing doesn't exist — the logo should keep the
+// user inside the WebView (sending them to `/home`) instead of launching the
+// system browser at the marketing site.
+const IS_MOBILE_BUILD = process.env.NEXT_PUBLIC_PLATFORM === "mobile";
+const LOGO_HREF = IS_MOBILE_BUILD ? "/home" : landingUrl("/");
+const LOGO_IS_EXTERNAL = !IS_MOBILE_BUILD && /^https?:\/\//.test(LOGO_HREF);
 
 type PageKey = "home" | "my" | "edit" | "public";
 
@@ -127,13 +135,23 @@ export function Header() {
   return (
     <header className="relative z-30 border-b-2 border-border-neon bg-[rgba(10,6,18,0.85)] backdrop-blur-sm">
       <div className="flex items-center gap-3 px-3 py-2.5 sm:px-5 sm:py-3">
-        <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <PixelLogo size={28} />
-          <div className="font-px text-[14px] xs:text-[16px] 2xl:text-[20px] leading-none">
-            <span className="glow-m">ONCHAIN</span>
-            <span className="glow-c">.ME</span>
-          </div>
-        </Link>
+        {LOGO_IS_EXTERNAL ? (
+          <a href={LOGO_HREF} className="flex items-center gap-2.5 shrink-0">
+            <PixelLogo size={28} />
+            <div className="font-px text-[14px] xs:text-[16px] 2xl:text-[20px] leading-none">
+              <span className="glow-m">ONCHAIN</span>
+              <span className="glow-c">.ME</span>
+            </div>
+          </a>
+        ) : (
+          <Link href={LOGO_HREF} className="flex items-center gap-2.5 shrink-0">
+            <PixelLogo size={28} />
+            <div className="font-px text-[14px] xs:text-[16px] 2xl:text-[20px] leading-none">
+              <span className="glow-m">ONCHAIN</span>
+              <span className="glow-c">.ME</span>
+            </div>
+          </Link>
+        )}
 
         <nav className="hidden sm:flex items-center gap-0.5 flex-1 ml-7">
           <NavLink label="Home" href="/home" active={current === "home"} disabled={false} prefetch />

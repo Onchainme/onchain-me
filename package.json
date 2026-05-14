@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "mobile:build": "BUILD_TARGET=mobile dotenv -e .env.mobile -- next build",
+    "mobile:build": "node scripts/mobile-build.mjs",
     "mobile:sync": "npm run mobile:build && cap sync android",
     "mobile:open": "cap open android",
     "mobile:run": "npm run mobile:sync && cap run android",

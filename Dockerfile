@@ -38,6 +38,16 @@ ENV NEXT_PUBLIC_SOLANA_CLUSTER=${NEXT_PUBLIC_SOLANA_CLUSTER}
 ARG NEXT_PUBLIC_SOLANA_RPC_URL
 ENV NEXT_PUBLIC_SOLANA_RPC_URL=${NEXT_PUBLIC_SOLANA_RPC_URL}
 
+# Public origins for the split-domain deployment. NEXT_PUBLIC_APP_URL is the
+# subdomain that serves the app (e.g. https://app.onchainme.to), used by the
+# marketing landing's CTAs. NEXT_PUBLIC_LANDING_URL is the apex (e.g.
+# https://onchainme.to), used by the app's logo to navigate back to the
+# landing. Both inline into the bundle at build time.
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+ARG NEXT_PUBLIC_LANDING_URL
+ENV NEXT_PUBLIC_LANDING_URL=${NEXT_PUBLIC_LANDING_URL}
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
