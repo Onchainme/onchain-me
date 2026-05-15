@@ -68,9 +68,14 @@ export function proxy(req: NextRequest) {
   }
 
   const url = req.nextUrl.clone();
-  // Preserve port for staging-like setups; drop the leading `www.` if present.
-  const bareHost = host.replace(/^www\./, "");
+  // `req.nextUrl` is built from the proxied connection (Caddy → frontend:3000),
+  // so cloning it carries the internal :3000. Strip any port from the public
+  // Host header, force https, and clear url.port — otherwise the redirect
+  // leaks `app.onchainme.to:3000` which the browser can't reach.
+  const bareHost = host.replace(/^www\./, "").split(":")[0];
+  url.protocol = "https:";
   url.host = `${APP_HOST_PREFIX}${bareHost}`;
+  url.port = "";
   return NextResponse.redirect(url, 308);
 }
 
