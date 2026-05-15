@@ -1,11 +1,14 @@
 import { memo, useMemo } from "react";
-import type { BuildingType } from "@/lib/types";
+import type { BuildingType, LandObject } from "@/lib/types";
 
 interface MiniIslandProps {
   width?: number;
   height?: number;
   seed?: number;
+  /** Procedural object count when `objects` is empty. */
   count?: number;
+  /** Real placements from the API — when set, renders the user's island instead of RNG. */
+  objects?: LandObject[];
   className?: string;
   fill?: boolean;
 }
@@ -75,6 +78,7 @@ function MiniIslandView({
   height = 110,
   seed = 0,
   count = 4,
+  objects: placementObjects,
   className,
   fill = false,
 }: MiniIslandProps) {
@@ -98,6 +102,14 @@ function MiniIslandView({
   });
 
   const objs = useMemo(() => {
+    if (placementObjects && placementObjects.length > 0) {
+      return placementObjects.map((o) => ({
+        gx: o.gx,
+        gy: o.gy,
+        hue: o.hue,
+        type: o.type,
+      }));
+    }
     const out: Array<{ gx: number; gy: number; hue: number; type: BuildingType }> = [];
     for (let i = 0; i < count; i++) {
       const gx = (i * 2 + seed + 1) % gs;
@@ -111,7 +123,7 @@ function MiniIslandView({
       });
     }
     return out;
-  }, [count, gs, seed]);
+  }, [count, gs, placementObjects, seed]);
 
   const stars = useMemo(() => computeStars(seed, width, height), [seed, width, height]);
 

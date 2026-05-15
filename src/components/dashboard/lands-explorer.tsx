@@ -62,7 +62,12 @@ export function LandsExplorer({
     if (initialItems.length > 0) return;
     const ctrl = new AbortController();
     startTransition(() => {
-      fetchLands({ sort: initialSort, limit: PAGE_SIZE, signal: ctrl.signal })
+      fetchLands({
+        sort: initialSort,
+        limit: PAGE_SIZE,
+        includePlacements: true,
+        signal: ctrl.signal,
+      })
         .then((page) => {
           setItems(page.items);
           setNextCursor(page.nextCursor);
@@ -84,7 +89,7 @@ export function LandsExplorer({
     const ctrl = new AbortController();
     setError(null);
     setLoading(true);
-    fetchLands({ sort, limit: PAGE_SIZE, signal: ctrl.signal })
+    fetchLands({ sort, limit: PAGE_SIZE, includePlacements: true, signal: ctrl.signal })
       .then((page) => {
         setItems(page.items);
         setNextCursor(page.nextCursor);
@@ -120,7 +125,12 @@ export function LandsExplorer({
     setLoading(true);
     setError(null);
     try {
-      const page = await fetchLands({ sort, cursor: cursor ?? undefined, limit: PAGE_SIZE });
+      const page = await fetchLands({
+        sort,
+        cursor: cursor ?? undefined,
+        limit: PAGE_SIZE,
+        includePlacements: true,
+      });
       setItems(page.items);
       setNextCursor(page.nextCursor);
       setCursorStack(nextStack);

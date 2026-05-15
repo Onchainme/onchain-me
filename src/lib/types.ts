@@ -50,6 +50,8 @@ export interface LandSummary {
   points: number;
   rank?: number;
   seed: number;
+  /** Server-rendered island preview when placements are not available inline. */
+  ogImageUrl?: string | null;
   featured?: boolean;
   badge?: string;
   rarityPct?: number;

@@ -33,10 +33,12 @@ interface LandCardProps {
   className?: string;
 }
 
-/** SVG thumbnails only — many Pixi canvases on this grid froze `/home`. */
+/** SVG / OG image previews — Pixi per card froze `/home`; real placements via MiniIsland. */
 function LandCardInner({ land, size = "md", className }: LandCardProps) {
   const s = PREVIEW[size];
   const isXL = size === "xl";
+  const hasPlacements = (land.objects?.length ?? 0) > 0;
+  const ogImage = land.ogImageUrl?.trim() || null;
 
   return (
     <Link
@@ -53,14 +55,32 @@ function LandCardInner({ land, size = "md", className }: LandCardProps) {
           className="flex-1 relative mb-2.5 border-2 border-border-neon-2 overflow-hidden"
           style={{ minHeight: s.minH }}
         >
-          <MiniIsland
-            width={s.w}
-            height={s.h}
-            seed={land.seed}
-            count={s.count}
-            fill
-            className="absolute inset-0 pointer-events-none"
-          />
+          {hasPlacements ? (
+            <MiniIsland
+              width={s.w}
+              height={s.h}
+              seed={land.seed}
+              objects={land.objects}
+              fill
+              className="absolute inset-0 pointer-events-none"
+            />
+          ) : ogImage ? (
+            // eslint-disable-next-line @next/next/no-img-element -- external OG URLs from API
+            <img
+              src={ogImage}
+              alt=""
+              className="absolute inset-0 size-full object-cover pointer-events-none image-render-pixel"
+            />
+          ) : (
+            <MiniIsland
+              width={s.w}
+              height={s.h}
+              seed={land.seed}
+              count={s.count}
+              fill
+              className="absolute inset-0 pointer-events-none"
+            />
+          )}
 
           <PreviewBadge land={land} size={size} />
 

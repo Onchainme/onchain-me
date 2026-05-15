@@ -511,6 +511,7 @@ export function toLandSummary(item: ApiLand): LandSummary {
     points: item.score,
     rank: item.rank,
     seed: walletSeed(item.wallet),
+    ogImageUrl: item.ogImageUrl,
     objects: item.placements.map(placementToLandObject),
   };
 }
