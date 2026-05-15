@@ -25,7 +25,21 @@ function isLocalHost(host: string): boolean {
   );
 }
 
+// Hostname split is gated behind an explicit env flag. Until the apex domain
+// is wired in Caddy (apex → reverse_proxy frontend instead of redir → app),
+// enforcing the split would make the marketing landing unreachable
+// (everything 308s to /home on app.<domain>). Default OFF → this proxy is a
+// pure pass-through and prod behaves exactly as before. Flip
+// NEXT_PUBLIC_ENABLE_DOMAIN_SPLIT=true in deploy/.env.production once the
+// Caddyfile apex block + NEXT_PUBLIC_APP_URL/LANDING_URL are in place.
+const DOMAIN_SPLIT_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_DOMAIN_SPLIT === "true";
+
 export function proxy(req: NextRequest) {
+  if (!DOMAIN_SPLIT_ENABLED) {
+    return NextResponse.next();
+  }
+
   const host = req.headers.get("host") ?? "";
   if (!host || isLocalHost(host)) {
     // Dev / health checks: don't enforce the split locally so devs can still
