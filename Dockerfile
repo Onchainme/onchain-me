@@ -47,6 +47,11 @@ ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ARG NEXT_PUBLIC_LANDING_URL
 ENV NEXT_PUBLIC_LANDING_URL=${NEXT_PUBLIC_LANDING_URL}
+# Master switch for the hostname split in src/proxy.ts. "true" makes the
+# proxy enforce apex=landing / app.=dashboard; anything else (incl. unset)
+# keeps it a pass-through. Inlined at build time.
+ARG NEXT_PUBLIC_ENABLE_DOMAIN_SPLIT
+ENV NEXT_PUBLIC_ENABLE_DOMAIN_SPLIT=${NEXT_PUBLIC_ENABLE_DOMAIN_SPLIT}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
