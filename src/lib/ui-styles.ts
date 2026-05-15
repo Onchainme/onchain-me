@@ -10,3 +10,6 @@ export const UI_LAYOUT = {
   pageContainer: "max-w-[1280px] mx-auto px-3 sm:px-6",
   pageGrid: "max-w-[1400px] mx-auto grid gap-3 p-3 sm:gap-6 sm:p-6",
 } as const;
+
+/** Shown on landing + Edit / mint modals. */
+export const MINT_COST_LABEL = "Mint cost ~$0.005/badge";

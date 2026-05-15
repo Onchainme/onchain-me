@@ -21,9 +21,10 @@ export interface StatsResponse {
 export async function fetchStats(signal?: AbortSignal): Promise<StatsResponse> {
   const res = await fetch(`${API_BASE_URL}/api/v1/stats`, {
     signal,
-    // Refresh once a minute on the edge so a long-lived SSR page doesn't lock
-    // in the snapshot for an hour. Browser side, Cache-Control still wins.
-    next: { revalidate: 60 },
+    // 5-minute revalidation: the LANDS MINTED counter on Hero and the
+    // landing-stats cards don't need real-time accuracy, and a 5-min TTL
+    // matches the backend Cache-Control: max-age=300 we set on /api/v1/stats.
+    next: { revalidate: 300 },
   });
   if (!res.ok) {
     throw new ApiError(`Failed to fetch stats: ${res.status}`, res.status);
@@ -66,6 +67,12 @@ export interface FetchLandsParams {
    * thumbnails. Inline placements from the API are still preserved.
    */
   includePlacements?: boolean;
+  /**
+   * Sliding-window cap (seconds) for sort=recent. e.g. 86400 → last 24h only.
+   * Ignored when sort=score. Set on `/home`'s "Newest" tab so it surfaces
+   * actually-recent signups instead of all-time history.
+   */
+  withinSec?: number;
 }
 
 export class ApiError extends Error {
@@ -84,11 +91,15 @@ export async function fetchLands({
   limit = 20,
   signal,
   includePlacements = false,
+  withinSec,
 }: FetchLandsParams = {}): Promise<LandsPage> {
   const url = new URL(`${API_BASE_URL}/api/v1/lands`);
   url.searchParams.set("sort", sort);
   url.searchParams.set("limit", String(limit));
   if (cursor) url.searchParams.set("cursor", cursor);
+  if (withinSec && sort === "recent") {
+    url.searchParams.set("withinSec", String(withinSec));
+  }
 
   const res = await fetch(url.toString(), {
     cache: "no-store",
@@ -512,7 +523,7 @@ export function toLandSummary(item: ApiLand): LandSummary {
     rank: item.rank,
     seed: walletSeed(item.wallet),
     ogImageUrl: item.ogImageUrl,
-    objects: item.placements.map(placementToLandObject),
+    objects: item.placements.map((p, i) => placementToLandObject(p, i)),
   };
 }
 

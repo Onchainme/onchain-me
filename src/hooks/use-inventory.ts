@@ -392,24 +392,55 @@ export function useInventory(): UseInventoryResult {
         console.log(`[mint] ${badgeId}: sent, signature=${sig}`);
 
         setMintStage("confirming");
-        const latest = await connection.getLatestBlockhash("confirmed");
-        try {
-          await connection.confirmTransaction(
-            {
-              signature: sig,
-              blockhash: latest.blockhash,
-              lastValidBlockHeight: latest.lastValidBlockHeight,
-            },
-            "confirmed",
-          );
-        } catch (err) {
-          console.error(`[mint] ${badgeId}: confirmTransaction failed`, err);
-          throw err;
-        }
-        console.log(`[mint] ${badgeId}: confirmed on-chain`);
-
         const signatureB58 =
           typeof sig === "string" ? sig : bs58.encode(sig as unknown as Uint8Array);
+
+        // IMPORTANT: do NOT use connection.confirmTransaction() here. Its
+        // blockhash strategy opens a `signatureSubscribe` WebSocket to
+        // wss://<rpc>; our backend proxy is HTTP-only (no WS endpoint), so
+        // the subscription fails instantly and web3.js then relies solely
+        // on the getBlockHeight expiry race — which always loses, surfacing
+        // a misleading "block height exceeded" even when the tx landed.
+        //
+        // Instead poll getSignatureStatus over plain HTTP (→ proxied
+        // getSignatureStatuses). searchTransactionHistory:true so we still
+        // find it if it confirmed a moment before our first poll. On timeout
+        // we DON'T throw — the backend /mint/confirm below does its own
+        // server-side Helius status check and is the authoritative gate.
+        const CONFIRM_TIMEOUT_MS = 60_000;
+        const POLL_INTERVAL_MS = 2_000;
+        const startedAt = Date.now();
+        let onChainOk = false;
+        while (Date.now() - startedAt < CONFIRM_TIMEOUT_MS) {
+          let statusValue: Awaited<
+            ReturnType<typeof connection.getSignatureStatus>
+          >["value"] = null;
+          try {
+            statusValue = (
+              await connection.getSignatureStatus(signatureB58, {
+                searchTransactionHistory: true,
+              })
+            ).value;
+          } catch (err) {
+            console.warn(`[mint] ${badgeId}: getSignatureStatus poll error`, err);
+          }
+          if (statusValue) {
+            if (statusValue.err) {
+              throw new Error(
+                `Transaction failed on-chain: ${JSON.stringify(statusValue.err)}`,
+              );
+            }
+            const cs = statusValue.confirmationStatus;
+            if (cs === "confirmed" || cs === "finalized") {
+              onChainOk = true;
+              break;
+            }
+          }
+          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        }
+        console.log(
+          `[mint] ${badgeId}: on-chain poll ${onChainOk ? "confirmed" : "timed out (backend will re-check)"}`,
+        );
 
         setMintStage("indexing");
 
@@ -472,11 +503,16 @@ export function useInventory(): UseInventoryResult {
         // until a full page reload.
         importedForWalletRef.current = null;
 
-        // Notify other components (Hero banner, StatsRail) so they re-fetch
-        // /lands and /inventory and reflect the new score / claimed count
-        // without waiting for the next page reload.
+        // Notify other components (Hero banner, StatsRail, MintToast) so they
+        // re-fetch /lands and /inventory and reflect the new score / claimed
+        // count without waiting for the next page reload. The toast also needs
+        // signature so it can deep-link to the explorer.
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("onchainme:mint", { detail: { badgeId } }));
+          window.dispatchEvent(
+            new CustomEvent("onchainme:mint", {
+              detail: { badgeId, signature: signatureB58 },
+            }),
+          );
         }
 
         setMintStage("done");

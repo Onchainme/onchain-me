@@ -1,4 +1,4 @@
-import { OpenAppButton } from "./open-app-button";
+import { LandingHashButton } from "./landing-hash-button";
 import { LandingSection } from "./landing-section";
 
 const SCORE_ROWS = [
@@ -143,7 +143,7 @@ export function LandingSybil() {
             </code>
           </pre>
 
-          <OpenAppButton label="Request API access" size="lg" className="self-start" />
+          <LandingHashButton label="Request API access" size="lg" className="self-start" />
           <p className="font-grotesk text-[14px] text-muted-neon m-0">
             Free tier · pay per query above 10k/mo · enterprise on request.
           </p>

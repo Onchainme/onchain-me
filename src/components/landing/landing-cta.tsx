@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { SOCIAL_X_URL } from "@/lib/urls";
 import { OpenAppButton } from "./open-app-button";
 
 export function LandingCta() {
@@ -33,11 +34,7 @@ export function LandingCta() {
             className="font-px tracking-[0.08em] min-w-[280px]"
             asChild
           >
-            <a
-              href="https://twitter.com/onchainme"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href={SOCIAL_X_URL} target="_blank" rel="noopener noreferrer">
               Follow on Twitter →
             </a>
           </Button>

@@ -16,6 +16,7 @@ import { API_BASE_URL } from "@/lib/api";
 import { badgeAsset, isBadgeId } from "@/lib/badge-catalog";
 import { MintProgress } from "@/components/modals/mint-progress";
 import type { MintStage } from "@/hooks/use-inventory";
+import { MINT_COST_LABEL } from "@/lib/ui-styles";
 
 interface MintSingleModalProps {
   item: InventoryItem | null;
@@ -118,10 +119,13 @@ export function MintSingleModal({
               </div>
             </div>
             <Separator variant="dashed" />
-            <div className="flex items-center">
-              <span className="font-silk text-[12px] text-muted-neon">YOUR COST</span>
-              <div className="flex-1" />
-              <span className="font-px glow-c text-xs">{formatMintPrice(mintPriceLamports)}</span>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center">
+                <span className="font-silk text-[12px] text-muted-neon">YOUR COST</span>
+                <div className="flex-1" />
+                <span className="font-px glow-c text-xs">{formatMintPrice(mintPriceLamports)}</span>
+              </div>
+              <span className="font-silk text-[10px] text-muted-neon">{MINT_COST_LABEL}</span>
             </div>
             {pending ? <MintProgress stage={mintStage} /> : null}
             {localError ? (

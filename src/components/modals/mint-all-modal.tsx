@@ -18,6 +18,7 @@ import { API_BASE_URL } from "@/lib/api";
 import { badgeAsset, isBadgeId } from "@/lib/badge-catalog";
 import { MintProgress } from "@/components/modals/mint-progress";
 import type { MintStage } from "@/hooks/use-inventory";
+import { MINT_COST_LABEL } from "@/lib/ui-styles";
 
 interface MintAllModalProps {
   items: InventoryItem[];
@@ -143,12 +144,15 @@ export function MintAllModal({
           )}
         </div>
         <Separator variant="dashed" />
-        <div className="flex items-center">
-          <span className="font-silk text-[12px] text-muted-neon">YOUR COST</span>
-          <div className="flex-1" />
-          <span className="font-px glow-y text-xs">
-            {formatMintPriceTotal(mintPriceLamports, eligible.length)}
-          </span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center">
+            <span className="font-silk text-[12px] text-muted-neon">YOUR COST</span>
+            <div className="flex-1" />
+            <span className="font-px glow-y text-xs">
+              {formatMintPriceTotal(mintPriceLamports, eligible.length)}
+            </span>
+          </div>
+          <span className="font-silk text-[10px] text-muted-neon">{MINT_COST_LABEL}</span>
         </div>
         {localError ? (
           <p className="font-silk text-[10px] text-red-300 border border-red-500/40 bg-red-500/10 px-2 py-1.5 break-words">

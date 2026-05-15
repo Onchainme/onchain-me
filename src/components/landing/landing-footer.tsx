@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PixelLogo } from "@/components/ui/pixel-logo";
+import { SOCIAL_GITHUB_URL, SOCIAL_X_URL } from "@/lib/urls";
 
 const PRODUCT_LINKS = [
   { label: "How it works", href: "#how" },
@@ -48,7 +49,7 @@ export function LandingFooter() {
 
         <div
           aria-hidden
-          className="font-px text-[clamp(40px,8vw,120px)] tracking-[0.02em] text-transparent text-center mt-18 leading-none select-none [-webkit-text-stroke:1px_var(--color-border-neon)]"
+          className="font-px text-[clamp(40px,8vw,120px)] max-[500px]:text-[clamp(22px,9vw,34px)] max-[500px]:tracking-normal tracking-[0.02em] text-transparent text-center mt-18 leading-none select-none [-webkit-text-stroke:1px_var(--color-border-neon)] max-w-full overflow-hidden px-1"
         >
           ONCHAIN<span className="text-magenta-neon">.</span>ME
         </div>
@@ -57,29 +58,21 @@ export function LandingFooter() {
           <span>© 2026 OnchainMe Labs · Built for Solana</span>
           <div className="flex gap-5">
             <a
-              href="https://twitter.com/onchainme"
+              href={SOCIAL_X_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-cyan-neon transition-colors"
             >
               Twitter
             </a>
-            {/* <a
-              href="https://discord.gg/onchainme"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-cyan-neon transition-colors"
-            >
-              Discord
-            </a>
             <a
-              href="https://github.com/onchainme"
+              href={SOCIAL_GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-cyan-neon transition-colors"
             >
               GitHub
-            </a> */}
+            </a>
           </div>
         </div>
       </div>

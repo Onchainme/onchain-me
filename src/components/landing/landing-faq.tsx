@@ -10,7 +10,7 @@ const QUESTIONS = [
   },
   {
     q: "What does it cost?",
-    a: "Minting your land is free during alpha. After that, expect ~$0.001 per badge via Solana's compressed NFT standard — the network fee, nothing more. Cosmetics and traits are an optional upgrade later.",
+    a: "Minting your land is free during alpha. After that, expect ~$0.005 per badge via Solana's compressed NFT standard — the network fee, nothing more. Cosmetics and traits are an optional upgrade later.",
   },
   {
     q: "How is the Sybil score calculated?",

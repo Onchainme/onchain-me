@@ -14,7 +14,7 @@ import { Inventory } from "@/components/edit/inventory";
 import { useWallet } from "@/hooks/wallet";
 import { useInventory } from "@/hooks/use-inventory";
 import { MY_SHORT } from "@/lib/mock-data";
-import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
+import { MINT_COST_LABEL, UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
 import type { InventoryItem } from "@/lib/types";
 import { shortWallet } from "@/lib/utils";
 import { timeAgo } from "@/lib/time-ago";
@@ -117,6 +117,9 @@ export default function EditPage() {
           >
             Last scan: {loading ? "running…" : timeAgo(lastScanAt)}
           </div>
+          <p className="font-silk text-[10px] text-muted-neon text-center glow-y">
+            {MINT_COST_LABEL}
+          </p>
           {mintError ? (
             <div className="border border-red-500 bg-red-950/40 p-2 text-[11px] font-mono text-red-200 break-all">
               ⚠ {mintError}

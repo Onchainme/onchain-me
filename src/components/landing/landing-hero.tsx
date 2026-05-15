@@ -71,8 +71,7 @@ export function LandingHero({ previewLand = null }: LandingHeroProps) {
             </div>
             <div>
               Mint cost&nbsp;&nbsp;
-              <span className="text-ink-2">~</span>
-              <span className="glow-m">$0.001</span>
+              <span className="glow-m">~$0.005</span>
               <span className="text-ink-2">/badge</span>
             </div>
             <div>

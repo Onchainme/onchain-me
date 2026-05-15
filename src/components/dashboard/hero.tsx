@@ -6,8 +6,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MiniIsland } from "@/components/canvas/MiniIsland";
 import { useWallet } from "@/hooks/wallet";
-import { STATS } from "@/lib/mock-data";
-import { ApiError, fetchInventory, fetchLand } from "@/lib/api";
+import {
+  ApiError,
+  fetchInventory,
+  fetchLand,
+  fetchStats,
+  type StatsResponse,
+} from "@/lib/api";
 
 interface HeroStats {
   eligible: number;
@@ -21,6 +26,34 @@ interface HeroStats {
 export function Hero() {
   const { isConnected, openConnectModal, wallet } = useWallet();
   const [stats, setStats] = useState<HeroStats | null>(null);
+  // Global aggregate counters powering the LANDS MINTED / TODAY card in the
+  // disconnected hero. Pulled once on mount; backend caches the response for
+  // 5 min so revisits inside that window don't re-aggregate Mongo. Null →
+  // numeric fallback "0" / "+0" instead of stale design-doc placeholders.
+  const [globalStats, setGlobalStats] = useState<StatsResponse | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchStats(ac.signal)
+      .then(setGlobalStats)
+      .catch((err) => {
+        if (err?.name !== "AbortError") {
+          console.warn("[hero] fetchStats failed:", err);
+        }
+      });
+    // Re-fetch when ANY mint completes on the page so the counter pops up
+    // immediately for the user who just minted (within the 5-min cache TTL
+    // the value is the same anyway, but if a mint just happened we want
+    // freshness — the API responds quickly with the same cached value).
+    const refresh = () => {
+      void fetchStats().then(setGlobalStats).catch(() => {});
+    };
+    window.addEventListener("onchainme:mint", refresh);
+    return () => {
+      ac.abort();
+      window.removeEventListener("onchainme:mint", refresh);
+    };
+  }, []);
 
   useEffect(() => {
     if (!wallet?.address) {
@@ -150,12 +183,14 @@ export function Hero() {
           <div>
             <div className="font-silk text-[8px] text-muted-neon">LANDS MINTED</div>
             <div className="font-px glow-v text-[16px] sm:text-[20px] mt-0.5">
-              {STATS.mintedTotal.toLocaleString()}
+              {(globalStats?.totalMinted ?? 0).toLocaleString()}
             </div>
           </div>
           <div>
             <div className="font-silk text-[8px] text-muted-neon">TODAY</div>
-            <div className="font-px glow-y text-[16px] sm:text-[20px] mt-0.5">+{STATS.today}</div>
+            <div className="font-px glow-y text-[16px] sm:text-[20px] mt-0.5">
+              +{globalStats?.mintedToday ?? 0}
+            </div>
           </div>
         </div>
       </Card>

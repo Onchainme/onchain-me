@@ -19,6 +19,21 @@ const SORTS: Array<[LandsSort, string]> = [
   ["score", "Top Points"],
 ];
 
+// Sliding-window options only shown while sort=recent. Value 0 == "all time"
+// (no window). Numbers are seconds.
+const RECENT_WINDOWS: Array<{ value: number; label: string }> = [
+  { value: 60 * 60 * 24, label: "Last 24h" },
+  { value: 60 * 60 * 24 * 7, label: "Last 7 days" },
+  { value: 0, label: "All time" },
+];
+
+function formatWindowShort(secs: number | undefined): string {
+  if (!secs) return "all time";
+  if (secs >= 60 * 60 * 24 * 7) return `last ${Math.round(secs / (60 * 60 * 24))} days`;
+  if (secs >= 60 * 60 * 24) return "last 24h";
+  return `last ${Math.round(secs / 60)}m`;
+}
+
 // Bento grid: slot definitions for the 7 cards above the trailing 3-card row
 // on page 1. Subsequent pages render a uniform 10-card grid.
 const BENTO: Array<{ area: string; size: "sm" | "md" | "lg" | "xl" }> = [
@@ -35,14 +50,23 @@ interface LandsExplorerProps {
   initialItems: ApiLand[];
   initialNextCursor: string | null;
   initialSort: LandsSort;
+  /** Sliding-window cap (seconds) applied only to the "Newest" tab — matches
+   *  the SSR fetch on /home so client re-fetches stay consistent. Undefined
+   *  → no time cap (all-time history). */
+  newestWindowSec?: number;
 }
 
 export function LandsExplorer({
   initialItems,
   initialNextCursor,
   initialSort,
+  newestWindowSec,
 }: LandsExplorerProps) {
   const [sort, setSort] = useState<LandsSort>(initialSort);
+  // User-controlled time window for sort=recent. Initialised from the SSR
+  // default (24h on /home) so the very-first paint stays consistent with the
+  // server response we already rendered. 0 = no window cap (All time).
+  const [windowSec, setWindowSec] = useState<number>(newestWindowSec ?? 0);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ApiLand[]>(initialItems);
   // Cursor used to fetch each page; index = page number (0-based). Page 0
@@ -53,7 +77,16 @@ export function LandsExplorer({
   const [error, setError] = useState<string | null>(null);
 
   const lastSortRef = useRef(initialSort);
+  // `undefined` on the very first render so the sort+window refetch effect
+  // can distinguish "initial mount" from "user changed window".
+  const lastWindowRef = useRef<number | undefined>(undefined);
   const pageIndex = cursorStack.length - 1;
+
+  // Apply the user-selected window only when on the "Newest" tab —
+  // sort=score on the API ignores withinSec anyway, but skipping it keeps the
+  // query string clean and predictable. Value 0 = no cap.
+  const windowForSort = (s: LandsSort) =>
+    s === "recent" && windowSec > 0 ? windowSec : undefined;
 
   // Static-export builds (Capacitor / Android) can't reach the API at build
   // time, so server-fetched initialItems come back empty. Fetch once on mount
@@ -66,6 +99,7 @@ export function LandsExplorer({
         sort: initialSort,
         limit: PAGE_SIZE,
         includePlacements: true,
+        withinSec: windowForSort(initialSort),
         signal: ctrl.signal,
       })
         .then((page) => {
@@ -81,15 +115,30 @@ export function LandsExplorer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refetch page 1 whenever sort changes.
+  // Refetch page 1 whenever sort OR window changes. Skip the very first
+  // render (lastSortRef holds initialSort and lastWindowRef is unset) so we
+  // don't blow away the SSR data with an identical client fetch.
   useEffect(() => {
-    if (lastSortRef.current === sort) return;
+    const sortChanged = lastSortRef.current !== sort;
+    const windowChanged =
+      lastWindowRef.current !== undefined && lastWindowRef.current !== windowSec;
+    if (!sortChanged && !windowChanged) {
+      lastWindowRef.current = windowSec;
+      return;
+    }
     lastSortRef.current = sort;
+    lastWindowRef.current = windowSec;
 
     const ctrl = new AbortController();
     setError(null);
     setLoading(true);
-    fetchLands({ sort, limit: PAGE_SIZE, includePlacements: true, signal: ctrl.signal })
+    fetchLands({
+      sort,
+      limit: PAGE_SIZE,
+      includePlacements: true,
+      withinSec: windowForSort(sort),
+      signal: ctrl.signal,
+    })
       .then((page) => {
         setItems(page.items);
         setNextCursor(page.nextCursor);
@@ -103,7 +152,7 @@ export function LandsExplorer({
         if (!ctrl.signal.aborted) setLoading(false);
       });
     return () => ctrl.abort();
-  }, [sort]);
+  }, [sort, windowSec]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -130,6 +179,7 @@ export function LandsExplorer({
         cursor: cursor ?? undefined,
         limit: PAGE_SIZE,
         includePlacements: true,
+        withinSec: windowForSort(sort),
       });
       setItems(page.items);
       setNextCursor(page.nextCursor);
@@ -172,6 +222,30 @@ export function LandsExplorer({
             </Badge>
           ))}
         </div>
+        {/* Time-window selector — only visible on the Newest tab. Hidden under
+            Top Points because the leaderboard sort doesn't honor withinSec. */}
+        {sort === "recent" ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-silk text-[10px] text-muted-neon tracking-[0.14em]">
+              SHOW:
+            </span>
+            {RECENT_WINDOWS.map((w) => (
+              <Badge
+                key={w.value}
+                variant={windowSec === w.value ? "chip-on" : "chip"}
+                asChild
+              >
+                <button
+                  type="button"
+                  onClick={() => setWindowSec(w.value)}
+                  disabled={loading}
+                >
+                  {w.label}
+                </button>
+              </Badge>
+            ))}
+          </div>
+        ) : null}
         <div className="hidden sm:block flex-1" />
         <Input
           className="w-full sm:w-56"
@@ -190,9 +264,13 @@ export function LandsExplorer({
       ) : null}
 
       {!loading && summaries.length === 0 ? (
-        <div className="font-silk text-[12px] text-muted-neon py-8 text-center">
-          NO LANDS FOUND
-        </div>
+        <EmptyState
+          sort={sort}
+          query={query}
+          windowSec={windowSec}
+          onSwitchSort={() => setSort("score")}
+          onWidenWindow={() => setWindowSec(0)}
+        />
       ) : null}
 
       {bento.length > 0 ? (
@@ -229,6 +307,59 @@ export function LandsExplorer({
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Context-aware empty state. Tells the user *why* the grid is empty (search
+ * came up dry / time window is too tight / nobody minted yet) and what they
+ * can click to recover — instead of a generic "NO LANDS FOUND".
+ */
+function EmptyState({
+  sort,
+  query,
+  windowSec,
+  onSwitchSort,
+  onWidenWindow,
+}: {
+  sort: LandsSort;
+  query: string;
+  windowSec: number;
+  onSwitchSort: () => void;
+  onWidenWindow: () => void;
+}) {
+  if (query) {
+    return (
+      <div className="font-silk text-[12px] text-muted-neon py-8 text-center">
+        No wallets match <span className="text-cyan-neon">{query}</span>.
+      </div>
+    );
+  }
+  if (sort === "recent" && windowSec > 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-8 text-center">
+        <div className="font-silk text-[12px] text-muted-neon">
+          No new wallets in the {formatWindowShort(windowSec)}.
+        </div>
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          <Badge variant="chip" asChild>
+            <button type="button" onClick={onWidenWindow}>
+              Show all time
+            </button>
+          </Badge>
+          <Badge variant="chip" asChild>
+            <button type="button" onClick={onSwitchSort}>
+              Check Top Points →
+            </button>
+          </Badge>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="font-silk text-[12px] text-muted-neon py-8 text-center">
+      No lands yet — be the first.
     </div>
   );
 }

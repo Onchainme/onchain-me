@@ -30,7 +30,7 @@ export function LandingBadges() {
           <span className="text-muted-neon">A path to 50+.</span>
         </>
       }
-      lead="Rule-based, transparent, and minted as compressed NFTs at ~$0.001 each."
+      lead="Rule-based, transparent, and minted as compressed NFTs at ~$0.005 each."
     >
       <div className="grid gap-4 grid-cols-2 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-5">
         {BADGES.map((b) => {
