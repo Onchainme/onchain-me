@@ -38,16 +38,24 @@ export default async function HomePage() {
   let stats: StatsResponse | null = null;
 
   const [landsResult, statsResult] = await Promise.allSettled([
-    fetchLands({ sort: "score", limit: 1 }),
+    fetchLands({ sort: "score", limit: 1, includePlacements: true }),
     fetchStats(),
   ]);
   if (landsResult.status === "fulfilled") {
-    const wallet = landsResult.value.items[0]?.wallet;
-    if (wallet) {
-      try {
-        previewLand = await fetchLand(wallet);
-      } catch {
-        previewLand = null;
+    const top = landsResult.value.items[0];
+    if (top) {
+      previewLand = {
+        wallet: top.wallet,
+        stats: top.stats,
+        placements: top.placements ?? [],
+        ogImageUrl: top.ogImageUrl,
+      };
+      if (top.placements == null) {
+        try {
+          previewLand = await fetchLand(top.wallet);
+        } catch {
+          previewLand = null;
+        }
       }
     }
   }

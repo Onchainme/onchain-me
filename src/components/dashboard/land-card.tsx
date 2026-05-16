@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { memo } from "react";
 import { cn, shortWallet } from "@/lib/utils";
-import { MiniIsland } from "@/components/canvas/MiniIsland";
+import { LandCardPreview } from "@/components/dashboard/land-card-preview";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { LandSummary } from "@/lib/types";
@@ -33,12 +33,10 @@ interface LandCardProps {
   className?: string;
 }
 
-/** SVG / OG image previews — Pixi per card froze `/home`; real placements via MiniIsland. */
+/** Lazy island preview — Pixi on desktop large cards (max 2), SVG elsewhere. */
 function LandCardInner({ land, size = "md", className }: LandCardProps) {
   const s = PREVIEW[size];
   const isXL = size === "xl";
-  const hasPlacements = (land.objects?.length ?? 0) > 0;
-  const ogImage = land.ogImageUrl?.trim() || null;
 
   return (
     <Link
@@ -52,35 +50,17 @@ function LandCardInner({ land, size = "md", className }: LandCardProps) {
         className="land-card flex-col h-full"
       >
         <div
-          className="flex-1 relative mb-2.5 border-2 border-border-neon-2 overflow-hidden"
+          className="flex-1 relative mb-2.5 border-2 border-border-neon-2 overflow-hidden land-card-preview-host"
           style={{ minHeight: s.minH }}
         >
-          {hasPlacements ? (
-            <MiniIsland
-              width={s.w}
-              height={s.h}
-              seed={land.seed}
-              objects={land.objects}
-              fill
-              className="absolute inset-0 pointer-events-none"
-            />
-          ) : ogImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- external OG URLs from API
-            <img
-              src={ogImage}
-              alt=""
-              className="absolute inset-0 size-full object-cover pointer-events-none image-render-pixel"
-            />
-          ) : (
-            <MiniIsland
-              width={s.w}
-              height={s.h}
-              seed={land.seed}
-              count={s.count}
-              fill
-              className="absolute inset-0 pointer-events-none"
-            />
-          )}
+          <LandCardPreview
+            seed={land.seed}
+            objects={land.objects}
+            width={s.w}
+            height={s.h}
+            size={size}
+            ogImageUrl={land.ogImageUrl}
+          />
 
           <PreviewBadge land={land} size={size} />
 

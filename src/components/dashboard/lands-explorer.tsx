@@ -278,6 +278,7 @@ export function LandsExplorer({
           {bento.map((land, i) => (
             <div
               key={`${land.address}-${i}`}
+              className="land-card-slot"
               style={{ gridArea: BENTO[i].area, minHeight: 0 }}
             >
               <LandCard land={land} size={BENTO[i].size} />
@@ -289,7 +290,9 @@ export function LandsExplorer({
       {rest.length > 0 ? (
         <div className="grid gap-3.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {rest.map((land, i) => (
-            <LandCard key={`${land.address}-rest-${i}`} land={land} size="sm" />
+            <div key={`${land.address}-rest-${i}`} className="land-card-slot">
+              <LandCard land={land} size="sm" />
+            </div>
           ))}
         </div>
       ) : null}

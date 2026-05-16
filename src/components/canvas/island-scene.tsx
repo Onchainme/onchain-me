@@ -73,25 +73,30 @@ export interface IslandSceneProps {
   /** Visual scale of the island (tiles, side blocks, buildings, hamsters).
    *  The sky/background stays full-canvas. Defaults to 1. */
   scale?: number;
+  /** Home-card thumbnail: no hamsters, capped DPR, static badge textures only. */
+  preview?: boolean;
   hoveredIndex?: number | null;
   onHoverObject?: (i: number | null) => void;
   onTileClick?: (gx: number, gy: number) => void;
   onObjectClick?: (obj: LandObject) => void;
 }
 
-export function IslandScene(props: IslandSceneProps) {
+export function IslandScene({ preview = false, ...props }: IslandSceneProps) {
+  const resolution =
+    typeof window !== "undefined"
+      ? Math.min(window.devicePixelRatio, preview ? 1 : 2)
+      : 1;
+
   return (
     <Application
       width={props.width}
       height={props.height}
       background="#0a0612"
       antialias={false}
-      resolution={
-        typeof window !== "undefined" ? Math.min(window.devicePixelRatio, 2) : 1
-      }
+      resolution={resolution}
       autoDensity
     >
-      <IslandContent {...props} />
+      <IslandContent preview={preview} {...props} />
     </Application>
   );
 }
@@ -103,6 +108,7 @@ function IslandContent({
   objects,
   showGrid = false,
   scale = 1,
+  preview = false,
   hoveredIndex = null,
   onHoverObject,
   onTileClick,
@@ -125,7 +131,7 @@ function IslandContent({
     <pixiContainer>
       <Sky width={width} height={height} />
       <pixiContainer x={offsetX} y={offsetY} scale={scale}>
-        <Hamsters gridSize={gridSize} project={project} />
+        {preview ? null : <Hamsters gridSize={gridSize} project={project} />}
         <SideBlocks gridSize={gridSize} project={project} />
         <TileGrid
           gridSize={gridSize}
@@ -137,6 +143,7 @@ function IslandContent({
         <Objects
           objects={objects}
           project={project}
+          preview={preview}
           hoveredIndex={hoveredIndex}
           onHoverObject={onHoverObject}
           onObjectClick={onObjectClick}
@@ -455,12 +462,14 @@ function findTile(
 function Objects({
   objects,
   project,
+  preview = false,
   hoveredIndex,
   onHoverObject,
   onObjectClick,
 }: {
   objects: LandObject[];
   project: ReturnType<typeof createProjection>;
+  preview?: boolean;
   hoveredIndex: number | null;
   onHoverObject?: (i: number | null) => void;
   onObjectClick?: (obj: LandObject) => void;
@@ -485,6 +494,7 @@ function Objects({
             index={index}
             x={p.x}
             y={p.y + TILE_H / 2}
+            preview={preview}
             isHover={index === hoveredIndex}
             onHoverObject={onHoverObject}
             onObjectClick={onObjectClick}
@@ -500,6 +510,7 @@ function BuildingSprite({
   index,
   x,
   y,
+  preview = false,
   isHover,
   onHoverObject,
   onObjectClick,
@@ -508,6 +519,7 @@ function BuildingSprite({
   index: number;
   x: number;
   y: number;
+  preview?: boolean;
   isHover: boolean;
   onHoverObject?: (i: number | null) => void;
   onObjectClick?: (obj: LandObject) => void;
@@ -528,7 +540,7 @@ function BuildingSprite({
         onHoverObject,
         onObjectClick,
       };
-      return asset.animated ? (
+      return asset.animated && !preview ? (
         <AnimatedBadgeSprite url={asset.url} {...shared} />
       ) : (
         <StaticBadgeSprite url={asset.url} {...shared} />

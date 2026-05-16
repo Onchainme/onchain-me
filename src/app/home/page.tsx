@@ -8,6 +8,7 @@ import {
   type FeedPage,
   type LandsPage,
 } from "@/lib/api";
+import { UI_LAYOUT } from "@/lib/ui-styles";
 
 const INITIAL_SORT = "recent" as const;
 // "Newest" tab on /home is a sliding 24h window so the grid surfaces
@@ -43,7 +44,7 @@ export default async function AppHomePage() {
 
   return (
     <PageShell>
-      <div className="max-w-[1280px] mx-auto px-3 pt-4 pb-8 sm:px-12 sm:pt-6 sm:pb-10 flex flex-col gap-3.5">
+      <div className={`${UI_LAYOUT.pageShell} ${UI_LAYOUT.pageShellStack}`}>
         <Hero />
         <LiveTicker initialItems={feed.items} />
         <LandsExplorer

@@ -1,5 +1,5 @@
 import type { LandSummary } from "@/lib/types";
-import { placementToLandObject } from "./placement-mapper";
+import { placementsToLandObjects } from "./placement-mapper";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -523,7 +523,7 @@ export function toLandSummary(item: ApiLand): LandSummary {
     rank: item.rank,
     seed: walletSeed(item.wallet),
     ogImageUrl: item.ogImageUrl,
-    objects: item.placements.map((p, i) => placementToLandObject(p, i)),
+    objects: placementsToLandObjects(item.placements),
   };
 }
 

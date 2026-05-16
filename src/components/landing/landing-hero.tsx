@@ -6,7 +6,7 @@ import { MiniIsland } from "@/components/canvas/MiniIsland";
 import { OpenAppButton } from "./open-app-button";
 import { Button } from "@/components/ui/button";
 import type { LandResponse } from "@/lib/api";
-import { placementToLandObject } from "@/lib/placement-mapper";
+import { placementsToLandObjects } from "@/lib/placement-mapper";
 import { shortWallet } from "@/lib/utils";
 
 const HeroIsland = dynamic(
@@ -14,7 +14,7 @@ const HeroIsland = dynamic(
     import("@/components/canvas/IsometricIsland").then((m) => m.IsometricIsland),
   {
     ssr: false,
-    loading: () => <MiniIsland fill seed={7} count={5} />,
+    loading: () => <MiniIsland fill seed={7} count={0} />,
   },
 );
 
@@ -109,10 +109,9 @@ interface LandPreviewCardProps {
 
 function LandPreviewCard({ previewLand }: LandPreviewCardProps) {
   const objects = useMemo(
-    () => previewLand?.placements.map(placementToLandObject) ?? [],
+    () => (previewLand ? placementsToLandObjects(previewLand.placements) : []),
     [previewLand],
   );
-  const hasScene = objects.length > 0;
   const headerLabel = previewLand?.wallet
     ? `/land/${shortWallet(previewLand.wallet)}`
     : "/land/0xT…7fE";
@@ -120,7 +119,7 @@ function LandPreviewCard({ previewLand }: LandPreviewCardProps) {
   return (
     <div className="relative w-full aspect-square border-2 border-border-neon bg-panel overflow-hidden">
       <div className="absolute inset-0 z-0">
-        {hasScene ? (
+        {previewLand ? (
           <HeroIsland
             width={1200}
             height={1200}
@@ -128,7 +127,7 @@ function LandPreviewCard({ previewLand }: LandPreviewCardProps) {
             objects={objects}
           />
         ) : (
-          <MiniIsland fill seed={7} count={5} />
+          <MiniIsland fill seed={7} count={0} />
         )}
       </div>
 

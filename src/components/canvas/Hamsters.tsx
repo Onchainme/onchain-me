@@ -18,9 +18,9 @@ export function Hamsters({ gridSize, project }: HamstersProps) {
   useEffect(() => {
     let isMounted = true;
     Assets.load([
-      "/sprites/ham-brown-px.png",
-      "/sprites/ham-white-px.png",
-      "/sprites/ham-gray-px.png",
+      "/sprites/ham-brown.png",
+      "/sprites/ham-white.png",
+      "/sprites/ham-gray.png",
     ]).then((loaded) => {
       if (isMounted) setTextures(loaded);
     });
@@ -46,7 +46,7 @@ export function Hamsters({ gridSize, project }: HamstersProps) {
   return (
     <pixiContainer>
       <pixiSprite
-        texture={textures["/sprites/ham-brown-px.png"]}
+        texture={textures["/sprites/ham-brown.png"]}
         x={cx - 97}
         y={islandBottomY + 11 + Y_OFFSET}
         anchor={0.5}
@@ -54,16 +54,16 @@ export function Hamsters({ gridSize, project }: HamstersProps) {
       />
 
       <pixiSprite
-        texture={textures["/sprites/ham-white-px.png"]}
+        texture={textures["/sprites/ham-white.png"]}
         x={cx}
-        y={islandBottomY + 45 + Y_OFFSET}
+        y={islandBottomY + 46 + Y_OFFSET}
         anchor={0.5}
         scale={HAMSTER_SCALE}
       />
 
       <pixiSprite
-        texture={textures["/sprites/ham-gray-px.png"]}
-        x={cx + 85}
+        texture={textures["/sprites/ham-gray.png"]}
+        x={cx + 95}
         y={islandBottomY + Y_OFFSET + 12}
         anchor={0.5}
         scale={HAMSTER_SCALE}

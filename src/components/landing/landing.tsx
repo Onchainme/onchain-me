@@ -40,9 +40,9 @@ const LandingFaqDynamic = dynamic(
 );
 
 interface LandingProps {
-  /** Most-recent land from `fetchLands({ limit: 1 })`, used to seed the hero
-   *  preview's PixiJS scene. Null when the API is unreachable or there are
-   *  no lands yet — hero falls back to the SVG `MiniIsland` thumbnail. */
+  /** Top-scoring land (`fetchLands({ sort: "score", limit: 1 })`), used to seed
+   *  the hero's PixiJS scene. Null when the API is unreachable or there are
+   *  no lands yet — hero falls back to an empty island thumbnail. */
   previewLand?: LandResponse | null;
   /** Live aggregate counters; when present, LandingStats swaps its hardcoded
    *  marketing numbers for these. Null → static placeholders. */

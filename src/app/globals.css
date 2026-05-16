@@ -481,9 +481,20 @@
     transform 120ms steps(2),
     box-shadow 200ms;
 }
-.land-card:hover {
-  transform: translateY(-3px);
-  box-shadow:
-    0 0 0 2px var(--color-cyan-neon),
-    0 0 24px rgba(34, 211, 238, 0.4);
+@media (hover: hover) and (pointer: fine) {
+  .land-card:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 0 0 2px var(--color-cyan-neon),
+      0 0 24px rgba(34, 211, 238, 0.4);
+  }
+}
+
+/* Skip layout/paint for off-screen land cards while scrolling /home */
+.land-card-slot {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 180px;
+}
+.land-card-preview-host {
+  contain: layout paint style;
 }
