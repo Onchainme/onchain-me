@@ -2,6 +2,8 @@ import Link from "next/link";
 import { memo } from "react";
 import { cn, shortWallet } from "@/lib/utils";
 import { MiniIsland } from "@/components/canvas/MiniIsland";
+import { IsometricIsland } from "@/components/canvas/IsometricIsland";
+import { LazyMount } from "@/components/ui/lazy-mount";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { LandSummary } from "@/lib/types";
@@ -56,14 +58,33 @@ function LandCardInner({ land, size = "md", className }: LandCardProps) {
           style={{ minHeight: s.minH }}
         >
           {hasPlacements ? (
-            <MiniIsland
-              width={s.w}
-              height={s.h}
-              seed={land.seed}
-              objects={land.objects}
-              fill
+            // Real Pixi island, but only for cards in (or near) the viewport —
+            // mounting one WebGL canvas per card froze `/home`. Off-screen
+            // cards fall back to the lightweight SVG of the same placements
+            // and the canvas is unmounted to cap live WebGL contexts.
+            <LazyMount
               className="absolute inset-0 pointer-events-none"
-            />
+              rootMargin="300px"
+              unmountOnExit
+              fallback={
+                <MiniIsland
+                  width={s.w}
+                  height={s.h}
+                  seed={land.seed}
+                  objects={land.objects}
+                  fill
+                  className="absolute inset-0"
+                />
+              }
+            >
+              <IsometricIsland
+                width={s.w}
+                height={s.h}
+                objects={land.objects ?? []}
+                fill
+                className="w-full h-full"
+              />
+            </LazyMount>
           ) : ogImage ? (
             // eslint-disable-next-line @next/next/no-img-element -- external OG URLs from API
             <img

@@ -1,35 +1,39 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-// Mobile WebView starts at `/index.html` (the root of Capacitor's `webDir`).
-// The landing only exists on the web build, so on mobile we bounce the user
-// straight to the dashboard. `replace` so the back button doesn't return here.
-const HOME = "/home/";
+// The marketing landing only exists in the web build. In the mobile APK the
+// Capacitor WebView always boots at `/` (the root of the static export), so
+// `/` bounces straight to the dashboard.
+//
+// This MUST be a soft, client-side router navigation — NOT
+// `window.location.replace`. A hard cross-document navigation makes the Next
+// App Router re-hydrate `/home` as a fresh static-export document, which it
+// cannot reconcile inside the WebView: it falls into an infinite
+// `mpaNavigation` → `window.location.replace('/home')` loop (Chromium logs
+// "Throttling navigation to prevent the browser from hanging") and the screen
+// never paints. `router.replace` keeps a single document and just swaps the
+// route tree, which the static export handles correctly.
+const HOME = "/home";
 
 export function MobileEntry() {
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.location.replace(HOME);
-    }
-  }, []);
+  const router = useRouter();
 
+  useEffect(() => {
+    router.replace(HOME);
+  }, [router]);
+
+  // Fills the frame with the app background during the one client tick before
+  // the dashboard tree mounts, so there's no white flash.
   return (
-    <>
-      {/* Fallback for the brief window before useEffect runs and for any
-       *  WebView that has JS disabled (shouldn't happen in Capacitor, but
-       *  cheap insurance). */}
-      <noscript>
-        <meta httpEquiv="refresh" content={`0; url=${HOME}`} />
-      </noscript>
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          inset: 0,
-          backgroundColor: "#0a0612",
-        }}
-      />
-    </>
+    <div
+      aria-hidden
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "#0a0612",
+      }}
+    />
   );
 }

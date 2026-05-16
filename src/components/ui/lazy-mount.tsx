@@ -7,6 +7,10 @@ interface LazyMountProps {
   className?: string;
   rootMargin?: string;
   fallback?: ReactNode;
+  /** Keep observing and unmount `children` (back to `fallback`) when the host
+   *  scrolls out of view. Use for heavy children (e.g. WebGL canvases) so only
+   *  the on-screen ones stay alive. Default: mount-once, never unmount. */
+  unmountOnExit?: boolean;
 }
 
 export function LazyMount({
@@ -14,20 +18,24 @@ export function LazyMount({
   className,
   rootMargin = "200px",
   fallback,
+  unmountOnExit = false,
 }: LazyMountProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (mounted) return;
+    if (mounted && !unmountOnExit) return;
     const node = hostRef.current;
     if (!node) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
+        const visible = entries.some((entry) => entry.isIntersecting);
+        if (visible) {
           setMounted(true);
-          observer.disconnect();
+          if (!unmountOnExit) observer.disconnect();
+        } else if (unmountOnExit) {
+          setMounted(false);
         }
       },
       { root: null, rootMargin, threshold: 0.01 },
@@ -35,7 +43,7 @@ export function LazyMount({
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [mounted, rootMargin]);
+  }, [mounted, rootMargin, unmountOnExit]);
 
   return (
     <div ref={hostRef} className={className}>
