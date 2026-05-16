@@ -44,7 +44,7 @@ export function ShareModal({ open, onClose, ownerAddress }: ShareModalProps) {
 
   const tweet = () => {
     const text = encodeURIComponent(
-      `Check out my pixel island on Onchain.me — ${link}`,
+      `Check out my pixel island on OnchainMe — ${link}`,
     );
     window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
   };

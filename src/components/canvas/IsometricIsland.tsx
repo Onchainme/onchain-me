@@ -55,10 +55,11 @@ export function IsometricIsland(props: IsometricIslandProps) {
   const w = size?.w ?? props.width;
   const h = size?.h ?? props.height;
 
-  // Visually shrink the island when the canvas is narrow so it doesn't fill
-  // the whole container — gives breathing room on mobile.
+  // fill mode uses autoFit (contain-fit inside the card), so the width-bucket
+  // shrink — which forced ~0.4 for every card on mobile — must not apply; the
+  // scene computes the fit scale itself. Non-fill keeps the legacy shrink.
   const baseScale = props.scale ?? 1;
-  const shrink = w < 360 ? 0.4 : w < 480 ? 0.4 : w < 640 ? 0.8 : 1;
+  const shrink = fill ? 1 : w < 360 ? 0.4 : w < 480 ? 0.4 : w < 640 ? 0.8 : 1;
   const scale = baseScale * shrink;
 
   if (fill) {
@@ -68,7 +69,15 @@ export function IsometricIsland(props: IsometricIslandProps) {
         className={className ?? "w-full h-full"}
         style={{ imageRendering: "pixelated" }}
       >
-        {size ? <IslandScene {...sceneProps} width={w} height={h} scale={scale} /> : null}
+        {size ? (
+          <IslandScene
+            {...sceneProps}
+            width={w}
+            height={h}
+            scale={scale}
+            autoFit={sceneProps.autoFit ?? true}
+          />
+        ) : null}
       </div>
     );
   }
@@ -86,7 +95,9 @@ export function IsometricIsland(props: IsometricIslandProps) {
           imageRendering: "pixelated",
         }}
       >
-        {size ? <IslandScene {...sceneProps} width={w} height={h} scale={scale} /> : null}
+        {size ? (
+          <IslandScene {...sceneProps} width={w} height={h} scale={scale} />
+        ) : null}
       </div>
     </div>
   );

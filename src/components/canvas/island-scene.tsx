@@ -1,6 +1,6 @@
 "use client";
 
-import { Application, extend } from "@pixi/react";
+import { Application, extend, useApplication } from "@pixi/react";
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 // Bare side-effect import runs `AnimatedWebPAsset.mjs` which calls
 // `extensions.add(...)` to register the `.webp` Assets loader. Without it the
@@ -32,6 +32,25 @@ import { Hamsters } from "./Hamsters";
 extend({ Container, Graphics, Sprite });
 
 const BADGE_SPRITE_SIZE = 40;
+
+// Natural bounding box of the island at scale 1, relative to the projection
+// origin (cx, cy=0). Width is exact from the grid geometry; the head/foot room
+// covers art that overflows the tile surface (buildings/badges rise above the
+// back tiles; hamsters hang below the underside). Tune these two if the fit
+// clips or leaves too much margin. FIT_PADDING is breathing room in the card.
+const FIT_HEADROOM = 60;
+const FIT_FOOTROOM = 90;
+const FIT_PADDING = 0.92;
+
+function islandFit(gridSize: number, width: number, height: number) {
+  const naturalW = gridSize * TILE_W;
+  const top = -FIT_HEADROOM;
+  const bottom = gridSize * TILE_H + SIDE_LAYERS * BLOCK_H + FIT_FOOTROOM;
+  const naturalH = bottom - top;
+  const scale =
+    Math.min(width / naturalW, height / naturalH) * FIT_PADDING;
+  return { scale, centerY: (top + bottom) / 2 };
+}
 
 // Touch devices fire pointerenter/leave bracketed around a tap, which would
 // flash the tooltip on and off. Gate hover callbacks on devices that actually
@@ -73,6 +92,20 @@ export interface IslandSceneProps {
   /** Visual scale of the island (tiles, side blocks, buildings, hamsters).
    *  The sky/background stays full-canvas. Defaults to 1. */
   scale?: number;
+  /** Cap this scene's render loop to N fps. Use for off-screen-ish previews
+   *  (the /home grid) where 60fps per canvas is wasted GPU work. The full
+   *  /land scene omits this so interaction stays at the display refresh rate. */
+  maxFPS?: number;
+  /** Scale & center the island to fit the canvas (contain-fit) instead of the
+   *  fixed width-bucket scale. Adapts to any card aspect ratio — use for the
+   *  /home grid. The full /land scene and the hero omit this and keep the
+   *  legacy fixed positioning. */
+  autoFit?: boolean;
+  /** Upper bound for the backing-buffer resolution. Final resolution is
+   *  `min(devicePixelRatio, maxResolution)` — a cap, never an increase, so
+   *  non-HiDPI screens are unaffected. Fill cost scales with resolution², so
+   *  lowering this for small previews is a big GPU win. Defaults to 2. */
+  maxResolution?: number;
   hoveredIndex?: number | null;
   onHoverObject?: (i: number | null) => void;
   onTileClick?: (gx: number, gy: number) => void;
@@ -87,13 +120,41 @@ export function IslandScene(props: IslandSceneProps) {
       background="#0a0612"
       antialias={false}
       resolution={
-        typeof window !== "undefined" ? Math.min(window.devicePixelRatio, 2) : 1
+        typeof window !== "undefined"
+          ? Math.min(window.devicePixelRatio, props.maxResolution ?? 2)
+          : 1
       }
       autoDensity
     >
+      {props.maxFPS != null ? <TickerThrottle maxFPS={props.maxFPS} /> : null}
       <IslandContent {...props} />
     </Application>
   );
+}
+
+/**
+ * Caps the host Application's own ticker to `maxFPS`. Each <Application> has
+ * its own ticker (sharedTicker defaults to false), so this only throttles the
+ * render loop of this scene — not the global Ticker.shared that drives
+ * animated-WebP frame advancement, and not other islands on the page.
+ */
+function TickerThrottle({ maxFPS }: { maxFPS: number }) {
+  const { app, isInitialised } = useApplication();
+  useEffect(() => {
+    if (!isInitialised || !app?.ticker) return;
+    const ticker = app.ticker;
+    const prev = ticker.maxFPS;
+    // Imperative sync to an external system (the Pixi ticker) — the exact
+    // escape hatch effects exist for; the immutability heuristic can't see
+    // that `ticker` is a mutable engine object, not React-owned state.
+    // eslint-disable-next-line react-hooks/immutability -- intentional ticker mutation
+    ticker.maxFPS = maxFPS;
+    return () => {
+      // eslint-disable-next-line react-hooks/immutability -- restore on unmount
+      ticker.maxFPS = prev;
+    };
+  }, [app, isInitialised, maxFPS]);
+  return null;
 }
 
 function IslandContent({
@@ -103,13 +164,17 @@ function IslandContent({
   objects,
   showGrid = false,
   scale = 1,
+  autoFit = false,
   hoveredIndex = null,
   onHoverObject,
   onTileClick,
   onObjectClick,
 }: IslandSceneProps) {
   const cx = width / 2;
-  const cy = height / 2 - (gridSize * TILE_H) / 4 - 30;
+  const fit = autoFit ? islandFit(gridSize, width, height) : null;
+  // autoFit: origin at the top reference (cy=0), island centered via offsets
+  // below. Legacy: the original hand-tuned vertical placement.
+  const cy = fit ? 0 : height / 2 - (gridSize * TILE_H) / 4 - 30;
   const project = useMemo(() => createProjection(cx, cy), [cx, cy]);
   const occupied = useMemo(
     () => new Set(objects.map((o) => `${o.gx},${o.gy}`)),
@@ -118,13 +183,17 @@ function IslandContent({
 
   // Scale the island around (cx, cy) by translating by cx*(1-scale), cy*(1-scale)
   // so a child drawn at (cx+dx, cy+dy) renders at (cx + scale*dx, cy + scale*dy).
-  const offsetX = cx * (1 - scale);
-  const offsetY = cy * (0.5 - scale);
+  // autoFit: contain-fit scale, with the island's bbox centered in the canvas.
+  const renderScale = fit ? fit.scale * scale : scale;
+  const offsetX = cx * (1 - renderScale);
+  const offsetY = fit
+    ? height / 2 - renderScale * fit.centerY
+    : cy * (0.5 - scale);
 
   return (
     <pixiContainer>
       <Sky width={width} height={height} />
-      <pixiContainer x={offsetX} y={offsetY} scale={scale}>
+      <pixiContainer x={offsetX} y={offsetY} scale={renderScale}>
         <Hamsters gridSize={gridSize} project={project} />
         <SideBlocks gridSize={gridSize} project={project} />
         <TileGrid

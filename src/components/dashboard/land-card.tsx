@@ -10,6 +10,18 @@ import type { LandSummary } from "@/lib/types";
 
 type Size = "sm" | "md" | "lg" | "xl";
 
+// Grid previews are tiny and non-interactive — 60fps per WebGL canvas is
+// wasted GPU work that multiplies across every visible card. Cap the render
+// loop; animated badges still play, just at this rate. The full /land scene
+// omits this and stays at the display refresh rate.
+const GRID_PREVIEW_FPS = 20;
+
+// Cap the backing-buffer resolution for grid previews. Fill cost scales with
+// resolution², so on HiDPI screens (dpr 2–3) this is the single biggest GPU
+// saving. 1.5 keeps the isometric grid's diagonal edges smooth even on the
+// large xl card while cutting ~44% of fill vs the dpr=2 default.
+const GRID_PREVIEW_MAX_RESOLUTION = 1.5;
+
 // vbox dimensions are tuned so slice-mode scales the island by container height
 // (vbox aspect ratio is always wider than any card aspect in the bento, so
 // height dominates the slice scale). Smaller `h` → bigger relative island.
@@ -81,6 +93,8 @@ function LandCardInner({ land, size = "md", className }: LandCardProps) {
                 width={s.w}
                 height={s.h}
                 objects={land.objects ?? []}
+                maxFPS={GRID_PREVIEW_FPS}
+                maxResolution={GRID_PREVIEW_MAX_RESOLUTION}
                 fill
                 className="w-full h-full"
               />
