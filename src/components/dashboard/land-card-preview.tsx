@@ -29,6 +29,8 @@ interface LandCardPreviewProps {
   height: number;
   size: "sm" | "md" | "lg" | "xl";
   ogImageUrl?: string | null;
+  maxFPS?: number;
+  maxResolution?: number;
 }
 
 function PreviewPlaceholder() {
@@ -48,6 +50,8 @@ function LandCardPreviewInner({
   height,
   size,
   ogImageUrl,
+  maxFPS,
+  maxResolution,
 }: LandCardPreviewProps) {
   const { ref, inView } = useInView({ rootMargin: "160px", threshold: 0.02 });
   const hasPlacements = (objects?.length ?? 0) > 0;
@@ -110,6 +114,8 @@ function LandCardPreviewInner({
           scale={size === "xl" ? 1.35 : 1.15}
           objects={objects}
           preview
+          maxFPS={maxFPS}
+          maxResolution={maxResolution}
           className="absolute inset-0 pointer-events-none"
         />
       ) : hasPlacements ? (

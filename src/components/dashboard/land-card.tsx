@@ -8,14 +8,26 @@ import type { LandSummary } from "@/lib/types";
 
 type Size = "sm" | "md" | "lg" | "xl";
 
+// Grid previews are tiny and non-interactive — 60fps per WebGL canvas is
+// wasted GPU work that multiplies across every visible card. Cap the render
+// loop; animated badges still play, just at this rate. The full /land scene
+// omits this and stays at the display refresh rate.
+const GRID_PREVIEW_FPS = 20;
+
+// Cap the backing-buffer resolution for grid previews. Fill cost scales with
+// resolution², so on HiDPI screens (dpr 2–3) this is the single biggest GPU
+// saving. 1.5 keeps the isometric grid's diagonal edges smooth even on the
+// large xl card while cutting ~44% of fill vs the dpr=2 default.
+const GRID_PREVIEW_MAX_RESOLUTION = 1.5;
+
 // vbox dimensions are tuned so slice-mode scales the island by container height
 // (vbox aspect ratio is always wider than any card aspect in the bento, so
 // height dominates the slice scale). Smaller `h` → bigger relative island.
 const PREVIEW: Record<Size, { w: number; h: number; minH: number; count: number }> = {
-  sm: { w: 480, h: 170, minH: 90,  count: 3 },
+  sm: { w: 480, h: 170, minH: 90, count: 3 },
   md: { w: 480, h: 135, minH: 110, count: 4 },
   lg: { w: 480, h: 110, minH: 150, count: 5 },
-  xl: { w: 480, h: 95,  minH: 220, count: 7 },
+  xl: { w: 480, h: 95, minH: 220, count: 7 },
 };
 
 // Font sizes in px for address/stat rows and overlay chips.
@@ -60,6 +72,8 @@ function LandCardInner({ land, size = "md", className }: LandCardProps) {
             height={s.h}
             size={size}
             ogImageUrl={land.ogImageUrl}
+            maxFPS={GRID_PREVIEW_FPS}
+            maxResolution={GRID_PREVIEW_MAX_RESOLUTION}
           />
 
           <PreviewBadge land={land} size={size} />
@@ -104,9 +118,9 @@ function LandCardInner({ land, size = "md", className }: LandCardProps) {
           >
             {shortWallet(land.address)}
           </span>
-           <span className="font-silk text-[12px] 2xl:text-[16px] text-muted-neon">
-              VIEW →
-            </span>
+          <span className="font-silk text-[12px] 2xl:text-[16px] text-muted-neon">
+            VIEW →
+          </span>
         </div>
         <div className="flex items-center gap-2.5 mt-1.5">
           <StatInline label="OBJ" value={land.objectsCount} color="glow-m" isXL={isXL} />
