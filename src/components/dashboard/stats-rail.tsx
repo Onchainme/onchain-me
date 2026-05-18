@@ -25,6 +25,8 @@ interface StatsRailProps {
     score: number;
     rank?: number;
   };
+  /** Claimed / eligible counts — rendered under stat chips (my-land sidebar). */
+  inventorySummary?: { claimed: number; eligible: number } | null;
 }
 
 interface RailStats {
@@ -40,6 +42,7 @@ export function StatsRail({
   address,
   recent = true,
   stats: externalStats,
+  inventorySummary = null,
 }: StatsRailProps) {
   const { wallet } = useWallet();
   const [stats, setStats] = useState<RailStats | null>(null);
@@ -124,6 +127,15 @@ export function StatsRail({
         />
         <StatChip label="POINTS" value={stats?.score ?? 0} color="yellow" />
       </div>
+      {inventorySummary &&
+      (inventorySummary.claimed > 0 || inventorySummary.eligible > 0) ? (
+        <Card padding="default" className="bg-bg-2 border-2 border-border-neon">
+          <div className={`${UI_TEXT.labelText} text-cyan-neon`}>
+            INVENTORY: {inventorySummary.claimed} CLAIMED · {inventorySummary.eligible}{" "}
+            ELIGIBLE
+          </div>
+        </Card>
+      ) : null}
       {recent && (stats?.recentClaims.length ?? 0) > 0 ? (
         <Card padding="default">
           <div className={`${UI_TEXT.labelText} text-muted-neon mb-1.5`}>

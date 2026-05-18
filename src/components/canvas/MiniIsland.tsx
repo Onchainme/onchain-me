@@ -11,6 +11,8 @@ interface MiniIslandProps {
   objects?: LandObject[];
   className?: string;
   fill?: boolean;
+  /** Grid thumbnails: skip starfield to cut SVG node count during scroll. */
+  lite?: boolean;
 }
 
 const TOP = [
@@ -81,6 +83,7 @@ function MiniIslandView({
   objects: placementObjects,
   className,
   fill = false,
+  lite = false,
 }: MiniIslandProps) {
   const gs = 5;
   const tw = 19;
@@ -125,7 +128,10 @@ function MiniIslandView({
     return out;
   }, [count, gs, placementObjects, seed]);
 
-  const stars = useMemo(() => computeStars(seed, width, height), [seed, width, height]);
+  const stars = useMemo(
+    () => (lite ? [] : computeStars(seed, width, height)),
+    [lite, seed, width, height],
+  );
 
   const coords = useMemo(() => {
     const out: Array<[number, number]> = [];

@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { RefreshCcw, Sparkles } from "lucide-react";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { StatsRail } from "@/components/dashboard/stats-rail";
+import { AppTwoColumnLayout } from "@/components/dashboard/app-two-column-layout";
+import { IslandViewport } from "@/components/dashboard/island-viewport";
 import { MapFrame } from "@/components/dashboard/map-frame";
+import { ShareLandButton } from "@/components/dashboard/share-land-button";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GlyphTile } from "@/components/ui/glyph-tile";
@@ -14,7 +17,7 @@ import { Inventory } from "@/components/edit/inventory";
 import { useWallet } from "@/hooks/wallet";
 import { useInventory } from "@/hooks/use-inventory";
 import { MY_SHORT } from "@/lib/mock-data";
-import { MINT_COST_LABEL, UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
+import { MINT_COST_LABEL, UI_TEXT } from "@/lib/ui-styles";
 import type { InventoryItem } from "@/lib/types";
 import { shortWallet } from "@/lib/utils";
 import { timeAgo } from "@/lib/time-ago";
@@ -32,22 +35,6 @@ const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
   { ssr: false },
 );
-
-const IslandCanvas = dynamic(
-  () =>
-    import("@/components/canvas/IsometricIsland").then((m) => m.IsometricIsland),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="grid place-items-center min-h-[360px] sm:min-h-[560px] w-full text-muted-neon font-silk text-xs">
-        LOADING ISLAND…
-      </div>
-    ),
-  },
-);
-
-const ISLAND_W = 900;
-const ISLAND_H = 680;
 
 export default function EditPage() {
   const { isConnected, isSessionReady, wallet, openConnectModal } = useWallet();
@@ -78,8 +65,6 @@ export default function EditPage() {
   const [mintAllOpen, setMintAllOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
-  // Guard: wait for /auth/me before treating the user as logged out (otherwise
-  // we flash "disconnected" on every reload and force another message signature).
   useEffect(() => {
     if (!isSessionReady) return;
     if (!isConnected) {
@@ -95,77 +80,72 @@ export default function EditPage() {
 
   return (
     <PageShell>
-      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 sm:grid-cols-[300px_1fr] md:grid-cols-[340px_1fr]`}>
-        <aside className="flex flex-col gap-3">
-          <StatsRail title="Edit" address={shortWallet(address)} recent={false} />
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => setMintAllOpen(true)}
-            disabled={eligibleCount === 0 || busyBadgeId !== null}
-          >
-            <Sparkles className="size-3" />{" "}
-            {busyBadgeId ? `Minting ${busyBadgeId}…` : `Mint All (${eligibleCount} eligible)`}
-          </Button>
-          <Button variant="ghost" onClick={rescan} disabled={loading}>
-            <RefreshCcw className="size-3" />{" "}
-            {loading ? "Scanning…" : "Update inventory"}
-          </Button>
-          <div
-            className="font-silk text-[10px] text-muted-neon text-center -mt-1"
-            title={lastScanAt ?? "Never scanned"}
-          >
-            Last scan: {loading ? "running…" : timeAgo(lastScanAt)}
-          </div>
-          <p className="font-silk text-[10px] text-muted-neon text-center glow-y">
-            {MINT_COST_LABEL}
-          </p>
-          {mintError ? (
-            <div className="border border-red-500 bg-red-950/40 p-2 text-[11px] font-mono text-red-200 break-all">
-              ⚠ {mintError}
-            </div>
-          ) : null}
-          <Inventory
-            items={inventory}
-            activeItemId={activeItemId}
-            onSelectPlaced={(id) =>
-              setActiveItem(activeItemId === id ? null : id)
-            }
-            onMintEligible={(it) => setMintSingle(it)}
-            claimedCount={claimedCount}
-            eligibleCount={eligibleCount}
-          />
-        </aside>
-
+      <AppTwoColumnLayout
+        sidebar={
+          <>
+            <StatsRail title="Edit" address={shortWallet(address)} recent={false} />
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full"
+              onClick={() => setMintAllOpen(true)}
+              disabled={eligibleCount === 0 || busyBadgeId !== null}
+            >
+              <Sparkles className="size-3" />{" "}
+              {busyBadgeId ? `Minting ${busyBadgeId}…` : `Mint All (${eligibleCount} eligible)`}
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={rescan} disabled={loading}>
+              <RefreshCcw className="size-3" />{" "}
+              {loading ? "Scanning…" : "Update inventory"}
+            </Button>
+            <p
+              className="font-silk text-[10px] text-muted-neon text-center"
+              title={lastScanAt ?? "Never scanned"}
+            >
+              Last scan: {loading ? "running…" : timeAgo(lastScanAt)}
+            </p>
+            <p className="font-silk text-[10px] text-muted-neon text-center glow-y">
+              {MINT_COST_LABEL}
+            </p>
+            {mintError ? (
+              <div className="border border-red-500 bg-red-950/40 p-2 text-[11px] font-mono text-red-200 break-all">
+                ⚠ {mintError}
+              </div>
+            ) : null}
+            <Inventory
+              items={inventory}
+              activeItemId={activeItemId}
+              onSelectPlaced={(id) =>
+                setActiveItem(activeItemId === id ? null : id)
+              }
+              onMintEligible={(it) => setMintSingle(it)}
+              claimedCount={claimedCount}
+              eligibleCount={eligibleCount}
+            />
+          </>
+        }
+      >
         <MapFrame
           label="EDIT · TILE GRID"
-          action={
-            <Button variant="cyan" size="sm" className="sm:h-9 sm:px-3.5 sm:text-[12px]" onClick={() => setShareOpen(true)}>
-              ↗ Share<span className="hidden sm:inline">&nbsp;the Land</span>
-            </Button>
+          hint={
+            activeItem
+              ? "CLICK A TILE TO PLACE · CLICK OBJECT TO REMOVE"
+              : "SELECT CLAIMED FROM INVENTORY"
           }
+          action={<ShareLandButton onClick={() => setShareOpen(true)} />}
         >
-          <div className="relative min-h-[360px] sm:h-[760px] flex items-center justify-center pt-8 sm:pt-0">
-            <IslandCanvas
-              width={ISLAND_W}
-              height={ISLAND_H}
-              scale={1.8}
-              objects={placed}
-              showGrid
-              hoveredIndex={hovered}
-              onHoverObject={setHovered}
-              onTileClick={placeAt}
-              onObjectClick={(o) => removeObject(o.id)}
-            />
+          <IslandViewport
+            objects={placed}
+            showGrid
+            hoveredIndex={hovered}
+            onHoverObject={setHovered}
+            onTileClick={placeAt}
+            onObjectClick={(o) => removeObject(o.id)}
+          >
             {activeItem ? <ActiveCursorCard item={activeItem} /> : null}
-            <div className={`${UI_TEXT.labelText} absolute bottom-2 left-2 sm:bottom-4 sm:left-4 text-muted-neon max-w-[calc(100%-1rem)] truncate`}>
-              {activeItem
-                ? "CLICK A TILE TO PLACE · CLICK OBJECT TO REMOVE"
-                : "SELECT CLAIMED FROM INVENTORY"}
-            </div>
-          </div>
+          </IslandViewport>
         </MapFrame>
-      </div>
+      </AppTwoColumnLayout>
 
       <MintSingleModal
         item={mintSingle}
@@ -197,7 +177,7 @@ function ActiveCursorCard({ item }: { item: InventoryItem }) {
     <Card
       accent="magenta"
       padding="sm"
-      className="absolute top-10 right-2 sm:top-12 sm:right-5 w-44 sm:w-56 max-w-[calc(100%-1rem)]"
+      className="absolute top-10 right-2 sm:top-12 sm:right-5 z-20 w-44 sm:w-56 max-w-[calc(100%-1rem)]"
     >
       <div className={`${UI_TEXT.labelText} glow-m mb-1`}>ACTIVE CURSOR</div>
       <div className="flex items-center gap-2 min-w-0">

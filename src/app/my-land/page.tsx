@@ -5,12 +5,15 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { StatsRail } from "@/components/dashboard/stats-rail";
+import { AppTwoColumnLayout } from "@/components/dashboard/app-two-column-layout";
+import { IslandViewport } from "@/components/dashboard/island-viewport";
 import { MapFrame } from "@/components/dashboard/map-frame";
+import { ShareLandButton } from "@/components/dashboard/share-land-button";
 import { ObjectTooltip } from "@/components/dashboard/object-tooltip";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/hooks/wallet";
 import { MY_SHORT } from "@/lib/mock-data";
-import { UI_LAYOUT, UI_TEXT } from "@/lib/ui-styles";
+import { UI_TEXT } from "@/lib/ui-styles";
 import {
   fetchLandByWallet,
   fetchLandInventory,
@@ -19,37 +22,17 @@ import {
 } from "@/lib/api";
 import type { LandObject } from "@/lib/types";
 import { shortWallet } from "@/lib/utils";
-import { placementToLandObject } from "@/lib/placement-mapper";
+import { placementsToLandObjects } from "@/lib/placement-mapper";
 
 const ShareModal = dynamic(
   () => import("@/components/modals/share-modal").then((m) => m.ShareModal),
   { ssr: false },
 );
 
-const IslandCanvas = dynamic(
-  () =>
-    import("@/components/canvas/IsometricIsland").then((m) => m.IsometricIsland),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="grid place-items-center min-h-[360px] sm:min-h-[560px] w-full text-muted-neon font-silk text-xs">
-        LOADING ISLAND…
-      </div>
-    ),
-  },
-);
-
-const ISLAND_W = 940;
-const ISLAND_H = 720;
-
 export default function MyLandPage() {
   const { isConnected, isSessionReady, wallet, openConnectModal } = useWallet();
   const router = useRouter();
   const [placed, setPlaced] = useState<LandObject[]>([]);
-  // Two independent indices so hover (visual ring) and click (info tooltip)
-  // don't fight each other. Hover only drives the cyan ring around the
-  // badge sprite; clicking a badge is what opens its ObjectTooltip. Tap the
-  // same badge or an empty tile to close.
   const [hovered, setHovered] = useState<number | null>(null);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -58,7 +41,6 @@ export default function MyLandPage() {
   const [inventory, setInventory] = useState<ApiInventory | null>(null);
   const [landData, setLandData] = useState<ApiLandDetails | null>(null);
 
-  // Guard: this page requires a wallet.
   useEffect(() => {
     if (!isSessionReady) return;
     if (!isConnected) {
@@ -67,9 +49,6 @@ export default function MyLandPage() {
     }
   }, [isConnected, isSessionReady, openConnectModal, router]);
 
-  // Tap-outside to close the tooltip. The tooltip itself is pointer-events-none
-  // so it never receives the click; we just exempt the Pixi canvas (taps there
-  // are handled by onObjectClick/onTileClick) and close on anything else.
   useEffect(() => {
     if (hovered === null) return;
     function handler(e: MouseEvent) {
@@ -99,8 +78,7 @@ export default function MyLandPage() {
       .then(([land, inv]) => {
         setLandData(land);
         setInventory(inv);
-        const mapped = land.placements.map((placement, index) => placementToLandObject(placement, index));
-        setPlaced(mapped);
+        setPlaced(placementsToLandObjects(land.placements));
         setSelectedIdx(null);
         setHovered(null);
       })
@@ -121,8 +99,7 @@ export default function MyLandPage() {
   if (!isSessionReady || !isConnected) return null;
 
   const hoveredObj = selectedIdx != null ? placed[selectedIdx] : null;
-  const shortAddress = wallet?.shortAddress ?? MY_SHORT;
-  const fullAddress = wallet?.address ?? shortAddress;
+  const fullAddress = wallet?.address ?? MY_SHORT;
   const eligibleCount = inventory?.eligible.length ?? 0;
   const claimedCount = inventory?.claimed.length ?? 0;
   const errorView = formatLoadError(loadError);
@@ -136,50 +113,43 @@ export default function MyLandPage() {
 
   return (
     <PageShell>
-      <div className={`${UI_LAYOUT.pageGrid} grid-cols-1 sm:grid-cols-[300px_1fr] md:grid-cols-[340px_1fr]`}>
-        <StatsRail address={shortWallet(fullAddress)} stats={landData?.stats} />
+      <AppTwoColumnLayout
+        sidebar={
+          <StatsRail
+            address={shortWallet(fullAddress)}
+            stats={landData?.stats}
+            inventorySummary={
+              !isLoading && !loadError
+                ? { claimed: claimedCount, eligible: eligibleCount }
+                : null
+            }
+          />
+        }
+      >
         <MapFrame
           label="YOUR ISLAND"
-          action={
-            <Button variant="cyan" size="sm" className="sm:h-9 sm:px-3.5 sm:text-[12px]" onClick={() => setShareOpen(true)}>
-              ↗ Share<span className="hidden sm:inline">&nbsp;the Land</span>
-            </Button>
-          }
+          hint={helperText}
+          action={<ShareLandButton onClick={() => setShareOpen(true)} />}
         >
-          <div className="relative min-h-[360px] sm:min-h-[700px] flex items-center justify-center pt-8 sm:pt-11">
-            <IslandCanvas
-              width={ISLAND_W}
-              height={ISLAND_H}
-              scale={1.8}
-              objects={placed}
-              hoveredIndex={hovered}
-              onHoverObject={setHovered}
-              onObjectClick={(obj) => {
-                const idx = placed.findIndex((p) => p.id === obj.id);
-                if (idx < 0) return;
-                // Toggle: re-click same badge to close, click another to switch.
-                setSelectedIdx((prev) => (prev === idx ? null : idx));
-              }}
-              onTileClick={() => setSelectedIdx(null)}
-            />
-            {isLoading ? (
-              <div className="absolute inset-0 z-20 grid place-items-center bg-[rgba(10,6,18,0.35)]">
-                <div className={`${UI_TEXT.labelText} glow-c`}>LOADING...</div>
-              </div>
-            ) : null}
+          <IslandViewport
+            objects={placed}
+            loading={isLoading}
+            hoveredIndex={hovered}
+            onHoverObject={setHovered}
+            onObjectClick={(obj) => {
+              const idx = placed.findIndex((p) => p.id === obj.id);
+              if (idx < 0) return;
+              setSelectedIdx((prev) => (prev === idx ? null : idx));
+            }}
+            onTileClick={() => setSelectedIdx(null)}
+          >
             {hoveredObj ? (
               <ObjectTooltip
                 obj={hoveredObj}
-                className="left-2 top-2 sm:left-auto sm:right-4 sm:top-12"
-                // Tooltip is now click-driven everywhere (not only mobile), so
-                // always render the close button. Lets desktop users dismiss
-                // without aiming at empty grass.
+                className="left-2 top-2 sm:left-auto sm:right-4 sm:top-12 z-20"
                 onClose={() => setSelectedIdx(null)}
               />
             ) : null}
-            <div className={`${UI_TEXT.labelText} absolute bottom-2 left-2 sm:bottom-4 sm:left-4 text-muted-neon max-w-[calc(100%-1rem)] truncate`}>
-              {helperText}
-            </div>
             {errorView ? (
               <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-auto z-20 sm:max-w-105 rounded border-2 border-magenta-neon bg-[rgba(26,15,46,0.92)] px-3 py-2 shadow-[0_0_16px_rgba(255,45,147,0.2)]">
                 <div className="flex items-start gap-2">
@@ -200,30 +170,18 @@ export default function MyLandPage() {
                 </div>
               </div>
             ) : null}
-            {!isLoading && !loadError && (eligibleCount > 0 || claimedCount > 0) ? (
-              <div className="hidden sm:block absolute top-12 right-0 z-20 max-w-[calc(100%-1rem)] rounded border-2 border-border-neon bg-bg-2 px-3 py-2">
-                <div className={`${UI_TEXT.labelText} text-cyan-neon`}>
-                  INVENTORY: {claimedCount} CLAIMED · {eligibleCount} ELIGIBLE
-                </div>
-              </div>
-            ) : null}
             {!isLoading && !loadError && placed.length === 0 ? (
               <Button
                 variant="outline"
                 onClick={() => void router.push("/edit")}
-                className="absolute z-20"
+                className="absolute z-20 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
               >
                 Go to Edit to place objects
               </Button>
             ) : null}
-            {!isLoading && !loadError && placed.length > 0 ? (
-              <div className={`${UI_TEXT.labelText} hidden sm:block absolute top-16 right-4 text-muted-neon`}>
-                OBJECTS: {placed.length}
-              </div>
-            ) : null}
-          </div>
+          </IslandViewport>
         </MapFrame>
-      </div>
+      </AppTwoColumnLayout>
       <ShareModal
         open={shareOpen}
         onClose={() => setShareOpen(false)}

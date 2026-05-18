@@ -1,6 +1,7 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,20 +12,31 @@ import {
   type ApiLand,
   type LandsSort,
 } from "@/lib/api";
+import {
+  HOME_LANDS_HASH,
+  hashForLandsView,
+  homeHashHref,
+  parseHomeHash,
+} from "@/lib/home-anchors";
 
 const PAGE_SIZE = 10;
 
-const SORTS: Array<[LandsSort, string]> = [
-  ["recent", "Newest"],
-  ["score", "Top Points"],
-];
+const SORTS: Array<[LandsSort, string, (typeof HOME_LANDS_HASH)[keyof typeof HOME_LANDS_HASH]]> =
+  [
+    ["recent", "Newest", HOME_LANDS_HASH.newest24h],
+    ["score", "Top Points", HOME_LANDS_HASH.topPoints],
+  ];
 
 // Sliding-window options only shown while sort=recent. Value 0 == "all time"
 // (no window). Numbers are seconds.
-const RECENT_WINDOWS: Array<{ value: number; label: string }> = [
-  { value: 60 * 60 * 24, label: "Last 24h" },
-  { value: 60 * 60 * 24 * 7, label: "Last 7 days" },
-  { value: 0, label: "All time" },
+const RECENT_WINDOWS: Array<{
+  value: number;
+  label: string;
+  hash: (typeof HOME_LANDS_HASH)[keyof typeof HOME_LANDS_HASH];
+}> = [
+  { value: 60 * 60 * 24, label: "Last 24h", hash: HOME_LANDS_HASH.newest24h },
+  { value: 60 * 60 * 24 * 7, label: "Last 7 days", hash: HOME_LANDS_HASH.sevenDays },
+  { value: 0, label: "All time", hash: HOME_LANDS_HASH.newestAll },
 ];
 
 function formatWindowShort(secs: number | undefined): string {
@@ -80,7 +92,50 @@ export function LandsExplorer({
   // `undefined` on the very first render so the sort+window refetch effect
   // can distinguish "initial mount" from "user changed window".
   const lastWindowRef = useRef<number | undefined>(undefined);
+  const applyingHashRef = useRef(false);
   const pageIndex = cursorStack.length - 1;
+
+  const scrollToExplorer = useCallback(() => {
+    document.getElementById("lands-explorer")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
+  const applyHash = useCallback(
+    (raw: string, scroll: boolean) => {
+      const parsed = parseHomeHash(raw);
+      if (!parsed) return;
+      applyingHashRef.current = true;
+      startTransition(() => {
+        setSort(parsed.sort);
+        setWindowSec(parsed.windowSec);
+      });
+      queueMicrotask(() => {
+        applyingHashRef.current = false;
+      });
+      if (scroll) scrollToExplorer();
+    },
+    [scrollToExplorer],
+  );
+
+  // Deep links: /home#newest-24h, /home#7days, /home#top-points, …
+  useEffect(() => {
+    if (window.location.hash) applyHash(window.location.hash, true);
+    const onHashChange = () => applyHash(window.location.hash, true);
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [applyHash]);
+
+  // Keep the URL hash in sync when the user changes tabs / windows in-app.
+  useEffect(() => {
+    if (applyingHashRef.current) return;
+    if (lastWindowRef.current === undefined) return;
+    const nextHash = `#${hashForLandsView(sort, windowSec)}`;
+    if (window.location.hash === nextHash) return;
+    const url = `${window.location.pathname}${window.location.search}${nextHash}`;
+    history.replaceState(null, "", url);
+  }, [sort, windowSec]);
 
   // Apply the user-selected window only when on the "Newest" tab —
   // sort=score on the API ignores withinSec anyway, but skipping it keeps the
@@ -207,18 +262,23 @@ export function LandsExplorer({
   }
 
   return (
-    <div className="flex flex-col gap-3.5">
+    <div id="lands-explorer" className="flex flex-col gap-3.5 scroll-mt-24">
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2 flex-wrap">
-          {SORTS.map(([k, label]) => (
+          {SORTS.map(([k, label, hash]) => (
             <Badge key={k} variant={sort === k ? "chip-on" : "chip"} asChild>
-              <button
-                type="button"
-                onClick={() => setSort(k)}
-                disabled={loading}
+              <Link
+                href={homeHashHref(hash)}
+                scroll={false}
+                aria-disabled={loading}
+                className={loading ? "pointer-events-none opacity-60" : undefined}
+                onClick={() => {
+                  setSort(k);
+                  if (k === "recent") setWindowSec(60 * 60 * 24);
+                }}
               >
                 {label}
-              </button>
+              </Link>
             </Badge>
           ))}
         </div>
@@ -235,13 +295,15 @@ export function LandsExplorer({
                 variant={windowSec === w.value ? "chip-on" : "chip"}
                 asChild
               >
-                <button
-                  type="button"
+                <Link
+                  href={homeHashHref(w.hash)}
+                  scroll={false}
+                  aria-disabled={loading}
+                  className={loading ? "pointer-events-none opacity-60" : undefined}
                   onClick={() => setWindowSec(w.value)}
-                  disabled={loading}
                 >
                   {w.label}
-                </button>
+                </Link>
               </Badge>
             ))}
           </div>
@@ -278,6 +340,7 @@ export function LandsExplorer({
           {bento.map((land, i) => (
             <div
               key={`${land.address}-${i}`}
+              className="land-card-slot"
               style={{ gridArea: BENTO[i].area, minHeight: 0 }}
             >
               <LandCard land={land} size={BENTO[i].size} />
@@ -289,7 +352,9 @@ export function LandsExplorer({
       {rest.length > 0 ? (
         <div className="grid gap-3.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {rest.map((land, i) => (
-            <LandCard key={`${land.address}-rest-${i}`} land={land} size="sm" />
+            <div key={`${land.address}-rest-${i}`} className="land-card-slot">
+              <LandCard land={land} size="sm" />
+            </div>
           ))}
         </div>
       ) : null}
@@ -344,14 +409,22 @@ function EmptyState({
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-center">
           <Badge variant="chip" asChild>
-            <button type="button" onClick={onWidenWindow}>
+            <Link
+              href={homeHashHref(HOME_LANDS_HASH.newestAll)}
+              scroll={false}
+              onClick={onWidenWindow}
+            >
               Show all time
-            </button>
+            </Link>
           </Badge>
           <Badge variant="chip" asChild>
-            <button type="button" onClick={onSwitchSort}>
+            <Link
+              href={homeHashHref(HOME_LANDS_HASH.topPoints)}
+              scroll={false}
+              onClick={onSwitchSort}
+            >
               Check Top Points →
-            </button>
+            </Link>
           </Badge>
         </div>
       </div>

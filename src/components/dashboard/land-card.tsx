@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { memo } from "react";
 import { cn, shortWallet } from "@/lib/utils";
-import { MiniIsland } from "@/components/canvas/MiniIsland";
-import { IsometricIsland } from "@/components/canvas/IsometricIsland";
-import { LazyMount } from "@/components/ui/lazy-mount";
+import { LandCardPreview } from "@/components/dashboard/land-card-preview";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { LandSummary } from "@/lib/types";
@@ -26,10 +24,10 @@ const GRID_PREVIEW_MAX_RESOLUTION = 1.5;
 // (vbox aspect ratio is always wider than any card aspect in the bento, so
 // height dominates the slice scale). Smaller `h` → bigger relative island.
 const PREVIEW: Record<Size, { w: number; h: number; minH: number; count: number }> = {
-  sm: { w: 480, h: 170, minH: 90,  count: 3 },
+  sm: { w: 480, h: 170, minH: 90, count: 3 },
   md: { w: 480, h: 135, minH: 110, count: 4 },
   lg: { w: 480, h: 110, minH: 150, count: 5 },
-  xl: { w: 480, h: 95,  minH: 220, count: 7 },
+  xl: { w: 480, h: 95, minH: 220, count: 7 },
 };
 
 // Font sizes in px for address/stat rows and overlay chips.
@@ -47,12 +45,10 @@ interface LandCardProps {
   className?: string;
 }
 
-/** SVG / OG image previews — Pixi per card froze `/home`; real placements via MiniIsland. */
+/** Lazy island preview — Pixi on desktop large cards (max 2), SVG elsewhere. */
 function LandCardInner({ land, size = "md", className }: LandCardProps) {
   const s = PREVIEW[size];
   const isXL = size === "xl";
-  const hasPlacements = (land.objects?.length ?? 0) > 0;
-  const ogImage = land.ogImageUrl?.trim() || null;
 
   return (
     <Link
@@ -66,56 +62,19 @@ function LandCardInner({ land, size = "md", className }: LandCardProps) {
         className="land-card flex-col h-full"
       >
         <div
-          className="flex-1 relative mb-2.5 border-2 border-border-neon-2 overflow-hidden"
+          className="flex-1 relative mb-2.5 border-2 border-border-neon-2 overflow-hidden land-card-preview-host"
           style={{ minHeight: s.minH }}
         >
-          {hasPlacements ? (
-            // Real Pixi island, but only for cards in (or near) the viewport —
-            // mounting one WebGL canvas per card froze `/home`. Off-screen
-            // cards fall back to the lightweight SVG of the same placements
-            // and the canvas is unmounted to cap live WebGL contexts.
-            <LazyMount
-              className="absolute inset-0 pointer-events-none"
-              rootMargin="300px"
-              unmountOnExit
-              fallback={
-                <MiniIsland
-                  width={s.w}
-                  height={s.h}
-                  seed={land.seed}
-                  objects={land.objects}
-                  fill
-                  className="absolute inset-0"
-                />
-              }
-            >
-              <IsometricIsland
-                width={s.w}
-                height={s.h}
-                objects={land.objects ?? []}
-                maxFPS={GRID_PREVIEW_FPS}
-                maxResolution={GRID_PREVIEW_MAX_RESOLUTION}
-                fill
-                className="w-full h-full"
-              />
-            </LazyMount>
-          ) : ogImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- external OG URLs from API
-            <img
-              src={ogImage}
-              alt=""
-              className="absolute inset-0 size-full object-cover pointer-events-none image-render-pixel"
-            />
-          ) : (
-            <MiniIsland
-              width={s.w}
-              height={s.h}
-              seed={land.seed}
-              count={s.count}
-              fill
-              className="absolute inset-0 pointer-events-none"
-            />
-          )}
+          <LandCardPreview
+            seed={land.seed}
+            objects={land.objects}
+            width={s.w}
+            height={s.h}
+            size={size}
+            ogImageUrl={land.ogImageUrl}
+            maxFPS={GRID_PREVIEW_FPS}
+            maxResolution={GRID_PREVIEW_MAX_RESOLUTION}
+          />
 
           <PreviewBadge land={land} size={size} />
 
@@ -159,9 +118,9 @@ function LandCardInner({ land, size = "md", className }: LandCardProps) {
           >
             {shortWallet(land.address)}
           </span>
-           <span className="font-silk text-[12px] 2xl:text-[16px] text-muted-neon">
-              VIEW →
-            </span>
+          <span className="font-silk text-[12px] 2xl:text-[16px] text-muted-neon">
+            VIEW →
+          </span>
         </div>
         <div className="flex items-center gap-2.5 mt-1.5">
           <StatInline label="OBJ" value={land.objectsCount} color="glow-m" isXL={isXL} />
