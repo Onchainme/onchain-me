@@ -121,9 +121,10 @@ function LandPreviewCard({ previewLand }: LandPreviewCardProps) {
       <div className="absolute inset-0 z-0">
         {previewLand ? (
           <HeroIsland
+            fill
             width={1200}
             height={1200}
-            scale={1.5}
+            scale={1.15}
             objects={objects}
           />
         ) : (
