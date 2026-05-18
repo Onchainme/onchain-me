@@ -212,6 +212,20 @@ export function inventoryItemFromBadge(
 }
 
 /**
+ * Cache-bust token for badge asset URLs. Bump this whenever the served CORS
+ * headers OR the image bytes change. Every badge URL carries `?v=<this>`, so
+ * incrementing it gives every visitor a brand-new cache key — sidestepping
+ * any stale response their browser cached under the old key (badge files are
+ * served `Cache-Control: public, max-age=1h`, so a response cached before a
+ * server-side CORS fix would otherwise keep failing for up to an hour with
+ * no server round-trip).
+ *
+ * v3: badges now served with wildcard `Access-Control-Allow-Origin: *`
+ *     (apps/api/src/server.ts onSend hook) — force-evict pre-fix cache.
+ */
+const BADGE_ASSET_VERSION = "3";
+
+/**
  * Resolve a badge to its single asset (url + animated flag). Returns null
  * for unknown ids so callers can fall back to the GlyphTile placeholder.
  * `apiBaseUrl` is the NEXT_PUBLIC_API_BASE_URL the frontend was built with.
@@ -223,7 +237,7 @@ export function badgeAsset(
   if (!isBadgeId(badgeId)) return null;
   const { asset } = BADGE_CATALOG[badgeId];
   return {
-    url: `${apiBaseUrl}/badges/${asset.file}`,
+    url: `${apiBaseUrl}/badges/${asset.file}?v=${BADGE_ASSET_VERSION}`,
     animated: asset.animated,
   };
 }
