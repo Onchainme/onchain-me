@@ -63,7 +63,7 @@ export function Hamsters({ gridSize, project }: HamstersProps) {
 
       <pixiSprite
         texture={textures["/sprites/ham-gray-px.png"]}
-        x={cx + 85}
+        x={cx + 95}
         y={islandBottomY + Y_OFFSET + 12}
         anchor={0.5}
         scale={HAMSTER_SCALE}
